@@ -57,19 +57,31 @@ async def run_workflow(workflow_id: UUID) -> None:
                     user_slack_config["bot_token"] = inst.bot_token
                     break
 
-            # Load repo → channel mappings for this user, including installation info
+            # Load repo → channel mappings for this repo across ALL users.
+            # The webhook creates a single workflow; the pipeline must send
+            # to every unique channel that any user mapped for this repo.
             repo_name = (wf.signal_payload or {}).get("repo", "")
             if repo_name:
                 result_maps = await db.execute(
                     select(RepoChannelMapping).where(
-                        RepoChannelMapping.user_id == wf.user_id,
                         RepoChannelMapping.repo_full_name == repo_name.lower(),
                     )
                 )
                 mappings = result_maps.scalars().all()
 
-                # Build channels list with per-channel bot tokens (deduplicate by channel_id)
+                # Load ALL installations referenced by these mappings
+                all_inst_ids = {m.installation_id for m in mappings if m.installation_id}
                 installations_map = {inst.id: inst for inst in installations}
+                if all_inst_ids - set(installations_map.keys()):
+                    extra_result = await db.execute(
+                        select(SlackInstallation).where(
+                            SlackInstallation.id.in_(all_inst_ids - set(installations_map.keys()))
+                        )
+                    )
+                    for inst in extra_result.scalars().all():
+                        installations_map[inst.id] = inst
+
+                # Build channels list with per-channel bot tokens (deduplicate by channel_id)
                 channels = []
                 seen_channel_ids = set()
                 for m in mappings:
@@ -101,15 +113,8 @@ async def run_workflow(workflow_id: UUID) -> None:
                 user_slack_config=user_slack_config,
             )
 
-            # Persist trace events as WorkflowStep rows
-            for event in result.get("trace_events", []):
-                step = WorkflowStep(
-                    workflow_id=workflow_id,
-                    agent_name=event["agent"],
-                    step_type=event["step_type"],
-                    output_data=event["data"],
-                )
-                db.add(step)
+            # Trace events are already persisted by emit_trace() in real-time,
+            # so no need to persist them again here.
 
             # Mark completed
             wf.status = WorkflowStatus.completed

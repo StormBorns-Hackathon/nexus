@@ -15,5 +15,6 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)  # null for GitHub-only users
     github_id = Column(String(50), unique=True, nullable=True, index=True)
     github_access_token = Column(String(512), nullable=True)
+    github_username = Column(String(255), nullable=True, index=True)
     avatar_url = Column(String(512), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

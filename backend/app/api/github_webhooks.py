@@ -200,22 +200,37 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
         # Only create workflows for "opened" PRs — other actions just notify
         workflows = []
         if action in workflow_actions:
-            mapped_user_ids = {m.user_id for m in mappings}
-            workflow_payload = _build_workflow_payload(event)
-            for user_id in mapped_user_ids:
-                workflow = Workflow(
-                    user_id=user_id,
-                    signal_type="github_pr",
-                    signal_payload=workflow_payload,
-                    status=WorkflowStatus.pending,
+            # Create ONE workflow per event.
+            # Try to assign it to the Nexus user who authored the PR.
+            pr_author_login = (
+                event.get("pull_request", {}).get("user", {}).get("login", "")
+            ).lower()
+
+            owner_user_id = mappings[0].user_id  # fallback
+            if pr_author_login:
+                from app.models.user_models import User
+                author_result = await db.execute(
+                    select(User).where(
+                        User.github_username.ilike(pr_author_login)
+                    )
                 )
-                db.add(workflow)
-                workflows.append(workflow)
+                author_user = author_result.scalar_one_or_none()
+                if author_user:
+                    owner_user_id = author_user.id
+
+            workflow_payload = _build_workflow_payload(event)
+            workflow = Workflow(
+                user_id=owner_user_id,
+                signal_type="github_pr",
+                signal_payload=workflow_payload,
+                status=WorkflowStatus.pending,
+            )
+            db.add(workflow)
+            workflows.append(workflow)
 
             await db.commit()
-            for workflow in workflows:
-                await db.refresh(workflow)
-                background_tasks.add_task(run_workflow_background, workflow.id)
+            await db.refresh(workflow)
+            background_tasks.add_task(run_workflow_background, workflow.id)
 
         # Group mappings by installation_id to batch token lookups
         installation_ids = {m.installation_id for m in mappings if m.installation_id}
