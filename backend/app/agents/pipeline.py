@@ -12,10 +12,10 @@ except ImportError:
     _omium_available = False
 
 
-def _trace(name: str):
+def _trace(name: str, **kwargs):
     """Return the omium.trace decorator if available, else identity."""
     if _omium_available:
-        return omium.trace(name)
+        return omium.trace(name, **kwargs)
     return lambda fn: fn
 
 
@@ -29,16 +29,16 @@ def _checkpoint(name: str):
 def build_pipeline(ws_manager=None):
     """Build and compile the Nexus agent pipeline."""
 
-    @_trace("planner_agent")
+    @_trace("planner_agent", span_type="agent")
     async def planner(state):
         return await planner_node(state, ws_manager)
 
-    @_trace("researcher_agent")
+    @_trace("researcher_agent", span_type="agent")
     async def researcher(state):
         return await researcher_node(state, ws_manager)
 
     @_checkpoint("after_research")
-    @_trace("action_agent")
+    @_trace("action_agent", span_type="agent")
     async def action(state):
         return await action_node(state, ws_manager)
 

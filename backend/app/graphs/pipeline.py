@@ -14,13 +14,20 @@ try:
     import omium
     _omium_trace = omium.trace
 except ImportError:
-    def _omium_trace(name: str):
+    def _omium_trace(name: str, **kwargs):
         return lambda fn: fn
 
 
-@_omium_trace("run_workflow")
+@_omium_trace("run_workflow", span_type="workflow")
 async def run_workflow(workflow_id: UUID) -> None:
     """Load workflow from DB, run the agent pipeline, persist results."""
+    try:
+        import omium
+        if hasattr(omium, "set_execution_id"):
+            omium.set_execution_id(str(workflow_id))
+    except Exception:
+        pass
+
     async with AsyncSessionLocal() as db:
         wf = await db.get(Workflow, workflow_id)
         if not wf:
