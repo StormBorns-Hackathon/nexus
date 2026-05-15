@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react"
-import { useNavigate } from "react-router-dom"
+import { apiUrl } from "@/lib/api"
 
 // ──────────────── Types ────────────────
 
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function fetchMe() {
       try {
-        const res = await fetch("/api/auth/me", {
+        const res = await fetch(apiUrl("/api/auth/me"), {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (!res.ok) throw new Error("Session expired")
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null)
-    const res = await fetch("/api/auth/signin", {
+    const res = await fetch(apiUrl("/api/auth/signin"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = useCallback(
     async (name: string, email: string, password: string) => {
       setError(null)
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch(apiUrl("/api/auth/signup"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGithubCode = useCallback(async (code: string) => {
     setError(null)
-    const res = await fetch("/api/auth/github", {
+    const res = await fetch(apiUrl("/api/auth/github"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
