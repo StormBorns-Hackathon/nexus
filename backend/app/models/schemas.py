@@ -36,6 +36,5 @@ class WorkflowDetail(BaseModel):
     steps: list[Dict[str, Any]]
 
 
-class ManualTriggerRequest(BaseModel):
-    scenario: str
-    custom_payload: dict | None = None
+class CommitTriggerRequest(BaseModel):
+    commit_url: str

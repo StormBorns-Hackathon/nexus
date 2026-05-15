@@ -16,6 +16,7 @@ class Workflow(Base):
     __tablename__ = "workflows"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     signal_type = Column(String(50), nullable=False)
     signal_payload = Column(JSON, nullable=False)
     status = Column(Enum(WorkflowStatus), default=WorkflowStatus.pending, nullable=False)

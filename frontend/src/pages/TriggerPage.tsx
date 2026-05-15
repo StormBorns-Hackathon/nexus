@@ -16,10 +16,10 @@ export function TriggerPage() {
           </div>
           <div>
             <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
-              Trigger Webhook
+              Trigger Pipeline
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Simulate an external signal to trigger the agent pipeline.
+              Provide a GitHub commit URL to analyze it with the agent pipeline.
             </p>
           </div>
         </div>
