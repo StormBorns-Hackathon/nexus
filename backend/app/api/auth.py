@@ -170,6 +170,7 @@ async def github_auth(body: GitHubCodeRequest, db: AsyncSession = Depends(get_db
         if user:
             # Link GitHub to existing email account
             user.github_id = gh_id
+            user.github_access_token = gh_access_token
             user.avatar_url = gh_avatar
         else:
             # Brand new user
@@ -177,9 +178,13 @@ async def github_auth(body: GitHubCodeRequest, db: AsyncSession = Depends(get_db
                 email=email,
                 name=gh_name,
                 github_id=gh_id,
+                github_access_token=gh_access_token,
                 avatar_url=gh_avatar,
             )
             db.add(user)
+    else:
+        user.github_access_token = gh_access_token
+        user.avatar_url = gh_avatar
 
     await db.commit()
     await db.refresh(user)

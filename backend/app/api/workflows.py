@@ -32,6 +32,7 @@ async def list_workflows(
         schemas.WorkflowSummary(
             id=w.id,
             signal_type=w.signal_type,
+            signal_payload=w.signal_payload,
             status=w.status,
             result_summary=w.result_summary,
             created_at=w.created_at,
@@ -68,6 +69,7 @@ async def get_workflow_detail(
     summary = schemas.WorkflowSummary(
         id=workflow.id,
         signal_type=workflow.signal_type,
+        signal_payload=workflow.signal_payload,
         status=workflow.status,
         result_summary=workflow.result_summary,
         created_at=workflow.created_at,
@@ -117,17 +119,30 @@ async def trigger_workflow(
 
     # Fetch details from GitHub API
     api_path = f"https://api.github.com/repos/{owner}/{repo}/{'pulls' if is_pr else 'issues'}/{number}"
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if user.github_access_token:
+        headers["Authorization"] = f"Bearer {user.github_access_token}"
+
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             api_path,
-            headers={"Accept": "application/vnd.github.v3+json"},
+            headers=headers,
             timeout=10,
         )
 
     if resp.status_code != 200:
+        detail = (
+            f"Could not fetch from GitHub (HTTP {resp.status_code}). "
+            "Make sure the repo exists and your signed-in GitHub account has access."
+        )
+        if resp.status_code in (401, 403) and not user.github_access_token:
+            detail = (
+                "Could not fetch from GitHub because this Nexus account does not have "
+                "a GitHub access token. Sign out and sign in with GitHub again."
+            )
         raise HTTPException(
             status_code=400,
-            detail=f"Could not fetch from GitHub (HTTP {resp.status_code}). Make sure the repo is public and the URL is correct.",
+            detail=detail,
         )
 
     data = resp.json()

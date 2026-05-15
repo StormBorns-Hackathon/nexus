@@ -41,7 +41,8 @@ const GITHUB_CLIENT_ID = "Ov23li2BuSs5rKzxj1yI"
 
 export function getGithubOAuthURL() {
   const redirectUri = `${window.location.origin}/auth/github/callback`
-  return `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user:email`
+  const scope = encodeURIComponent("repo user:email")
+  return `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`
 }
 
 // ──────────────── Provider ────────────────

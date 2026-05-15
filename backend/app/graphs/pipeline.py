@@ -2,7 +2,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 
 from app.models.database import AsyncSessionLocal
-from app.models.workflow_models import Workflow, WorkflowStep, WorkflowStatus
+from app.models.workflow_models import Workflow, WorkflowStatus
 from app.agents.pipeline import run_pipeline
 from app.services.ws_manager import ws_manager
 
@@ -25,16 +25,6 @@ async def run_workflow(workflow_id: UUID) -> None:
                 wf.signal_payload,
                 ws_manager,
             )
-
-            # Persist trace events as WorkflowStep rows
-            for event in result.get("trace_events", []):
-                step = WorkflowStep(
-                    workflow_id=workflow_id,
-                    agent_name=event["agent"],
-                    step_type=event["step_type"],
-                    output_data=event["data"],
-                )
-                db.add(step)
 
             # Mark completed
             wf.status = WorkflowStatus.completed

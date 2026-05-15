@@ -22,7 +22,7 @@ export interface WorkflowStep {
   input_data: Record<string, unknown> | null
   output_data: Record<string, unknown> | null
   tool_name: string | null
-  duration_ms: number
+  duration_ms: number | null
   created_at: string
 }
 

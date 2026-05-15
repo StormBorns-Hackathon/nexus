@@ -17,6 +17,27 @@ and cite sources. Respond in JSON:
 {"research_summary": "...", "key_findings": ["...", "..."]}"""
 
 
+def _signal_summary(signal: dict) -> str:
+    parts = [
+        f"Title: {signal.get('title', 'Unknown')}",
+        f"Repository: {signal.get('repo', 'N/A')}",
+        f"Author: {signal.get('author', 'unknown')}",
+        f"State: {signal.get('state', 'unknown')}",
+    ]
+    if signal.get("changed_files") is not None:
+        parts.append(
+            "Change size: "
+            f"{signal.get('changed_files', 0)} files, "
+            f"+{signal.get('additions', 0)} / -{signal.get('deletions', 0)}"
+        )
+    body = (signal.get("body") or "").strip()
+    if body:
+        parts.extend(["Description:", body[:1200]])
+    else:
+        parts.append("Description: No PR or issue body was provided.")
+    return "\n".join(parts)
+
+
 async def researcher_node(state: dict, ws_manager=None) -> dict:
     workflow_id = state["workflow_id"]
     traces = []
@@ -53,7 +74,10 @@ async def researcher_node(state: dict, ws_manager=None) -> dict:
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": RESEARCHER_SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(all_results)},
+                {"role": "user", "content": json.dumps({
+                    "signal": state.get("signal_payload", {}),
+                    "search_results": all_results,
+                })},
             ],
             response_format={"type": "json_object"},
         )
@@ -62,8 +86,11 @@ async def researcher_node(state: dict, ws_manager=None) -> dict:
         if content is None:
             return {"error": "LLM returned empty response in researcher", "trace_events": traces}
         result = json.loads(content)
-    except Exception as e:
-        return {"error": str(e), "trace_events": traces}
+    except Exception:
+        result = {
+            "research_summary": _signal_summary(state.get("signal_payload", {})),
+            "key_findings": ["Research synthesis failed; used GitHub signal payload instead."],
+        }
 
     traces.append(
         await emit_trace(
