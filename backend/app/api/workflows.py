@@ -1,5 +1,4 @@
-# app/api/workflows.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
@@ -7,11 +6,12 @@ from uuid import UUID
 from app.models.database import get_db
 from app.models.workflow_models import Workflow, WorkflowStep, WorkflowStatus
 from app.models import schemas
+from app.api.webhooks import run_workflow_background
 
 router = APIRouter()
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=schemas.WorkflowListResponse)
 async def list_workflows(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Workflow).order_by(Workflow.created_at.desc()))
     workflows = result.scalars().all()
@@ -28,7 +28,7 @@ async def list_workflows(db: AsyncSession = Depends(get_db)):
         for w in workflows
     ]
 
-    return {"workflows": summaries}
+    return schemas.WorkflowListResponse(workflows=summaries)
 
 
 @router.get("/{workflow_id}", response_model=schemas.WorkflowDetail)
@@ -72,16 +72,10 @@ async def get_workflow_detail(
 
     return schemas.WorkflowDetail(workflow=summary, steps=steps_serialized)
 
-from fastapi import BackgroundTasks
-from app.api.webhooks import run_workflow_background
-
-class ManualTriggerRequest(schemas.BaseModel):
-    scenario: str
-    custom_payload: dict | None = None
 
 @router.post("/trigger", status_code=201)
 async def trigger_workflow(
-    body: ManualTriggerRequest,
+    body: schemas.ManualTriggerRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):

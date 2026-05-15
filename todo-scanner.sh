@@ -11,7 +11,8 @@ REPO="${GITHUB_REPOSITORY##*/}"
 API="https://api.github.com"
 
 IGNORE_DIRS="node_modules .git dist build .next coverage"
-INCLUDES=(--include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx")
+INCLUDES=(--include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
+          --include="*.py" --include="*.rb" --include="*.sh")
 EXCLUDES=()
 for d in $IGNORE_DIRS; do EXCLUDES+=(--exclude-dir="$d"); done
 
@@ -46,9 +47,9 @@ ensure_label() {
     gh_api POST "/repos/${OWNER}/${REPO}/labels" \
       "{\"name\":\"${LABEL}\",\"color\":\"e4e669\",\"description\":\"Auto-created from TODO comments\"}" \
       > /dev/null
-    echo "✅  Created label \"${LABEL}\""
+    echo "Created label \"${LABEL}\""
   else
-    echo "✅  Label \"${LABEL}\" already exists"
+    echo "Label \"${LABEL}\" already exists"
   fi
 }
 
@@ -71,7 +72,7 @@ fetch_todo_issues() {
     [[ "$count" -lt 100 ]] && break
     (( page++ )) || true   # (( )) exits 1 when expression == 0; guard with || true
   done
-  echo "🗂   Fetched existing TODO issues from GitHub"
+  echo "Fetched existing TODO issues from GitHub"
 }
 
 # Given a fingerprint, return the issue number + state if it exists
@@ -101,10 +102,13 @@ find_issue_for_fp() {
 
 scan_todos() {
   # grep exits 1 if no matches — that's fine, just means no TODOs
+  # Matches both // and # comment styles, e.g.:
+  #   // TODO(author): message
+  #   # TODO(@author): message
   grep -rn --ignore-case \
     "${EXCLUDES[@]}" \
     "${INCLUDES[@]}" \
-    -E '//\s*TODO(\([^)]+\))?:?\s*.+' \
+    -E '(//|#)\s*TODO(\([^)]+\))?:?\s*.+' \
     . 2>/dev/null || true
 }
 
@@ -120,6 +124,7 @@ while IFS= read -r grep_line; do
   [[ -z "$grep_line" ]] && continue
 
   # Parse  ./path/file.ts:42:  // TODO(author): message
+  #        ./path/file.py:10:  # TODO(@author): message
   rel_path=$(printf '%s' "$grep_line" | cut -d: -f1 | sed 's|^\./||')
   line_num=$(printf '%s' "$grep_line"  | cut -d: -f2)
   raw_text=$(printf '%s' "$grep_line"  | cut -d: -f3-)
@@ -127,13 +132,16 @@ while IFS= read -r grep_line; do
   # Extract optional author and message
   author=$(printf '%s' "$raw_text" | grep -oP '(?<=TODO\()[^)]+(?=\))' || true)
   message=$(printf '%s' "$raw_text" \
-    | sed -E 's|.*//\s*[Tt][Oo][Dd][Oo](\([^)]+\))?:?\s*||' \
+    | sed -E 's|.*(//|#)\s*[Tt][Oo][Dd][Oo](\([^)]+\))?:?\s*||' \
     | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
   [[ -z "$message" ]] && continue
 
   fp=$(make_fp "${rel_path}:${message}")
   echo "$fp" >> "$ACTIVE_FP_FILE"
+
+  # Strip leading @ from author for display and assignee use
+  clean_author="${author#@}"
 
   author_prefix=""
   [[ -n "$author" ]] && author_prefix="[${author}] "
@@ -143,9 +151,9 @@ while IFS= read -r grep_line; do
   esc_msg=$(json_escape "$message")
   esc_file=$(json_escape "$rel_path")
   author_line=""
-  [[ -n "$author" ]] && author_line="\\n**Author hint:** \`${author}\`"
+  [[ -n "$clean_author" ]] && author_line="\\n**Author hint:** \`${clean_author}\`"
 
-  body="### 📌 TODO in \`${esc_file}:${line_num}\`\\n\\n> ${esc_msg}\\n\\n**File:** \`${esc_file}:${line_num}\`${author_line}\\n\\n---\\n_Auto-created by TODO Scanner._\\n<!-- todo-fingerprint:${fp} -->"
+  body="### TODO in \`${esc_file}:${line_num}\`\\n\\n> ${esc_msg}\\n\\n**File:** \`${esc_file}:${line_num}\`${author_line}\\n\\n---\\n_Auto-created by TODO Scanner._\\n<!-- todo-fingerprint:${fp} -->"
 
   # Check if issue already exists for this fingerprint
   if grep -q "todo-fingerprint:${fp}" "$ISSUES_FILE" 2>/dev/null; then
@@ -157,20 +165,17 @@ while IFS= read -r grep_line; do
     if [[ "$issue_state" == "closed" ]]; then
       gh_api PATCH "/repos/${OWNER}/${REPO}/issues/${issue_num}" \
         "{\"state\":\"open\",\"body\":\"${body}\"}" > /dev/null
-      echo "  🔄  Reopened #${issue_num} — ${rel_path}:${line_num}"
+      echo "Reopened #${issue_num} — ${rel_path}:${line_num}"
       (( reopened++ )) || true
     else
-      echo "  ✓   Exists   #${issue_num} — ${rel_path}:${line_num}"
+      echo "Exists   #${issue_num} — ${rel_path}:${line_num}"
       (( skipped++ )) || true
     fi
   else
     # New TODO — create issue
     # Build assignees array if author was specified
     assignees_json=""
-    if [[ -n "$author" ]]; then
-      clean_author="${author#@}"   # strip leading @ if present
-      assignees_json=",\"assignees\":[\"${clean_author}\"]"
-    fi
+    [[ -n "$clean_author" ]] && assignees_json=",\"assignees\":[\"${clean_author}\"]"
 
     payload="{\"title\":\"$(json_escape "$title")\",\"body\":\"${body}\",\"labels\":[\"${LABEL}\"]${assignees_json}}"
     result=$(gh_api POST "/repos/${OWNER}/${REPO}/issues" "$payload")
@@ -185,7 +190,7 @@ done < <(scan_todos)
 
 if [[ "$AUTO_CLOSE" == "true" ]]; then
   echo ""
-  echo "🔒  Checking for removed TODOs…"
+  echo "Checking for removed TODOs…"
 
   open_issues=$(gh_api GET \
     "/repos/${OWNER}/${REPO}/issues?labels=${LABEL}&state=open&per_page=100")
@@ -210,4 +215,4 @@ if [[ "$AUTO_CLOSE" == "true" ]]; then
 fi
 
 echo ""
-echo "✅  Done — created: ${created}, reopened: ${reopened}, skipped: ${skipped}, closed: ${closed}"
+echo "Done — created: ${created}, reopened: ${reopened}, skipped: ${skipped}, closed: ${closed}"

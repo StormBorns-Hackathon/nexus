@@ -1,8 +1,5 @@
-# app/api/webhooks.py
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from uuid import UUID
 
 from app.models.database import get_db
 from app.models.workflow_models import Workflow, WorkflowStatus
@@ -11,9 +8,8 @@ from app.models import schemas
 router = APIRouter()
 
 
-async def run_workflow_background(workflow_id: UUID):
-
-    from app.graphs.pipeline import run_workflow  
+async def run_workflow_background(workflow_id):
+    from app.graphs.pipeline import run_workflow
     await run_workflow(workflow_id)
 
 
