@@ -200,10 +200,24 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
         # Only create workflows for "opened" PRs — other actions just notify
         workflows = []
         if action in workflow_actions:
-            # Create ONE workflow per event (not one per user).
-            # Multiple users may have mapped the same repo, but we only need
-            # a single pipeline run — the pipeline resolves all target channels.
-            owner_user_id = mappings[0].user_id
+            # Create ONE workflow per event.
+            # Try to assign it to the Nexus user who authored the PR.
+            pr_author_login = (
+                event.get("pull_request", {}).get("user", {}).get("login", "")
+            ).lower()
+
+            owner_user_id = mappings[0].user_id  # fallback
+            if pr_author_login:
+                from app.models.user_models import User
+                author_result = await db.execute(
+                    select(User).where(
+                        User.github_username.ilike(pr_author_login)
+                    )
+                )
+                author_user = author_result.scalar_one_or_none()
+                if author_user:
+                    owner_user_id = author_user.id
+
             workflow_payload = _build_workflow_payload(event)
             workflow = Workflow(
                 user_id=owner_user_id,
