@@ -16,11 +16,11 @@ SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID")
 
 ACTION_SYSTEM_PROMPT = """You are an action agent. Given research findings and
-an action plan, compose a professional message to deliver via Slack.
-Use plain text only. Do not use Markdown, bullets, headings with #, code
-fences, tables, bold, italics, or link formatting. Keep the message concise
-and include a useful summary even if research is sparse.
-Respond in JSON: {"message": "...", "subject": "..."}"""
+an action plan, write the content for a Slack report.
+Return plain text fields only. Do not use Markdown, bullets, headings with #,
+code fences, tables, bold, italics, or link formatting inside field values.
+Always include a useful summary even if research is sparse.
+Respond in JSON: {"summary": "...", "recommended_action": "...", "subject": "..."}"""
 
 
 def _plain_text(value: object) -> str:
@@ -43,22 +43,48 @@ def _fallback_message(state: dict) -> str:
     if not summary:
         summary = _plain_text(signal.get("body")) or "No PR or issue description was provided."
 
-    return _plain_text(
-        "\n".join(
-            [
-                "Nexus Pipeline Report",
-                "",
-                f"Signal: {signal.get('title', 'Unknown')}",
-                f"Repo: {signal.get('repo', 'N/A')}",
-                f"URL: {signal.get('url', 'N/A')}",
-                "",
-                "Summary:",
-                summary[:1500],
-                "",
-                f"Recommended action: {state.get('action_plan', 'Review the signal and follow up with the owner.')}",
-            ]
-        )
+    return _format_slack_report(
+        signal,
+        summary,
+        _plain_text(state.get("action_plan"))
+        or "Review the signal and follow up with the owner.",
     )
+
+
+def _format_slack_report(signal: dict, summary: str, recommended_action: str) -> str:
+    lines = [
+        "*Nexus Pipeline Report*",
+        "",
+        f"*Signal:* {_plain_text(signal.get('title')) or 'Unknown'}",
+        f"*Repo:* {_plain_text(signal.get('repo')) or 'N/A'}",
+        f"*URL:* {_plain_text(signal.get('url')) or 'N/A'}",
+    ]
+
+    details = []
+    if signal.get("state"):
+        details.append(f"State: {_plain_text(signal.get('state'))}")
+    if signal.get("author"):
+        details.append(f"Author: {_plain_text(signal.get('author'))}")
+    if signal.get("changed_files") is not None:
+        details.append(
+            f"Change: {signal.get('changed_files', 0)} files, "
+            f"+{signal.get('additions', 0)} / -{signal.get('deletions', 0)}"
+        )
+    if details:
+        lines.append(f"*Details:* {' | '.join(details)}")
+
+    lines.extend(
+        [
+            "",
+            "*Summary:*",
+            _plain_text(summary)[:1500] or "No summary was generated.",
+            "",
+            "*Recommended action:*",
+            _plain_text(recommended_action)[:700]
+            or "Review the signal and follow up with the owner.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 async def action_node(state: dict, ws_manager=None) -> dict:
@@ -75,8 +101,9 @@ async def action_node(state: dict, ws_manager=None) -> dict:
         )
     )
 
-    # Try LLM to compose message; fall back to a basic summary if it fails
-    message_text = None
+    # Try LLM to compose the body copy; format the Slack report ourselves.
+    summary_text = None
+    recommended_action = None
     try:
         response = await client.chat.completions.create(
             model=MODEL_NAME,
@@ -99,13 +126,21 @@ async def action_node(state: dict, ws_manager=None) -> dict:
         content = response.choices[0].message.content
         if content:
             result = json.loads(content)
-            message_text = _plain_text(result.get("message", ""))
+            summary_text = _plain_text(
+                result.get("summary") or result.get("message") or ""
+            )
+            recommended_action = _plain_text(result.get("recommended_action") or "")
     except Exception as e:
         logger.error(f"Action LLM failed: {e}")
 
-    # If LLM failed or returned empty, build a fallback message
-    if not message_text:
+    if not summary_text:
         message_text = _fallback_message(state)
+    else:
+        message_text = _format_slack_report(
+            state.get("signal_payload", {}),
+            summary_text,
+            recommended_action or state.get("action_plan", ""),
+        )
 
     # Execute Slack action
     traces.append(

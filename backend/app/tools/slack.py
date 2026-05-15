@@ -16,7 +16,7 @@ async def send_slack_message(channel: str, text: str) -> dict:
             json={
                 "channel": channel or SLACK_CHANNEL_ID,
                 "text": text,
-                "mrkdwn": False,
+                "mrkdwn": True,
                 "unfurl_links": False,
                 "unfurl_media": False,
             },
