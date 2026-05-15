@@ -1,0 +1,42 @@
+# app/api/webhooks.py
+from fastapi import APIRouter, BackgroundTasks, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from uuid import UUID
+
+from app.models.database import get_db
+from app.models.workflow_models import Workflow, WorkflowStatus
+from app.models import schemas
+
+router = APIRouter()
+
+
+async def run_workflow_background(workflow_id: UUID):
+
+    from app.graphs.pipeline import run_workflow  
+    await run_workflow(workflow_id)
+
+
+@router.post("/ingest", response_model=schemas.WorkflowCreateResponse, status_code=201)
+async def ingest_webhook(
+    request: schemas.WebhookIngestRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    workflow = Workflow(
+        signal_type=request.source,
+        signal_payload=request.payload,
+        status=WorkflowStatus.pending,
+    )
+
+    db.add(workflow)
+    await db.commit()
+    await db.refresh(workflow)
+
+    background_tasks.add_task(run_workflow_background, workflow.id)
+
+    return schemas.WorkflowCreateResponse(
+        workflow_id=workflow.id,
+        status=workflow.status,
+        trace_url=f"/workflows/{workflow.id}",
+    )
