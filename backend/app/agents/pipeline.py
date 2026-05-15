@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from app.agents.state import AgentState
 from app.agents.planner import planner_node
-from backend.app.agents.researcher import researcher_node
+from app.agents.researcher import researcher_node
 from app.agents.action import action_node
 
 def build_pipeline(ws_manager=None):
