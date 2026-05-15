@@ -112,15 +112,8 @@ async def run_workflow(workflow_id: UUID) -> None:
                 user_slack_config=user_slack_config,
             )
 
-            # Persist trace events as WorkflowStep rows
-            for event in result.get("trace_events", []):
-                step = WorkflowStep(
-                    workflow_id=workflow_id,
-                    agent_name=event["agent"],
-                    step_type=event["step_type"],
-                    output_data=event["data"],
-                )
-                db.add(step)
+            # Trace events are already persisted by emit_trace() in real-time,
+            # so no need to persist them again here.
 
             # Mark completed
             wf.status = WorkflowStatus.completed
