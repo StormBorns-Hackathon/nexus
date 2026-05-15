@@ -1,0 +1,32 @@
+name: TODO to GitHub Issues
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+concurrency:
+  group: todo-scanner-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan-todos:
+    name: Scan TODOs & Sync Issues
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run TODO scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TODO_LABEL: "todo"
+          AUTO_CLOSE: "true"
+        run: bash todo-scanner.sh
