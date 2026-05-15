@@ -1,6 +1,11 @@
 import type { Workflow, WorkflowStep } from "@/types"
 
 const API_BASE = "/api"
+const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ?? ""
+
+export function apiUrl(path: string) {
+  return `${backendUrl}${path.startsWith("/") ? path : `/${path}`}`
+}
 
 function getToken(): string | null {
   return localStorage.getItem("nexus_token")
@@ -15,7 +20,7 @@ function authHeaders(): HeadersInit {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(`${API_BASE}${path}`), {
     ...init,
     headers: {
       ...authHeaders(),
@@ -83,12 +88,6 @@ export async function ingestWebhook(
     method: "POST",
     body: JSON.stringify({ source, event_type: eventType, payload }),
   })
-}
-
-const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ?? ""
-
-export function apiUrl(path: string) {
-  return `${backendUrl}${path.startsWith("/") ? path : `/${path}`}`
 }
 
 // ── Slack Integration ──
