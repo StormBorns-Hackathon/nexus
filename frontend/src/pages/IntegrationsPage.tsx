@@ -14,9 +14,7 @@ import {
   Hash,
   GitBranch,
   Building2,
-  Zap,
-  RefreshCw,
-  AlertTriangle,
+  Zap
 } from "lucide-react"
 import {
   useSlackStatus,
@@ -26,7 +24,7 @@ import {
   useAddMapping,
   useDeleteMapping,
   useSetDefaultChannel,
-  useRepairWebhook,
+  // useRepairWebhook,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import type { SlackInstallation } from "@/lib/api"
@@ -41,7 +39,7 @@ export function IntegrationsPage() {
   const addMappingMutation = useAddMapping()
   const deleteMappingMutation = useDeleteMapping()
   const setDefaultMutation = useSetDefaultChannel()
-  const repairMutation = useRepairWebhook()
+  // const repairMutation = useRepairWebhook()
 
   const [newRepo, setNewRepo] = useState("")
   const [selectedInstallation, setSelectedInstallation] = useState("")
