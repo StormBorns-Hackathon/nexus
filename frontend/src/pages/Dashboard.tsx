@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { Search, Filter, Loader2, Radio, Send } from "lucide-react"
+import { Search, Filter, Loader2, Radio } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WorkflowCard } from "@/components/workflow/WorkflowCard"
 import { useWorkflows } from "@/lib/queries"

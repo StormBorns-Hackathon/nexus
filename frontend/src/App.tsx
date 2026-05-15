@@ -11,7 +11,6 @@ import { WorkflowDetail } from "@/pages/WorkflowDetail"
 import { TriggerPage } from "@/pages/TriggerPage"
 import { ProfilePage } from "@/pages/ProfilePage"
 import { IntegrationsPage } from "@/pages/IntegrationsPage"
-import { SlackCallback } from "@/pages/SlackCallback"
 import { Layout } from "@/components/layout/Layout"
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute"
 

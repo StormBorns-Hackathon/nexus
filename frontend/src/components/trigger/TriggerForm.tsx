@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
-import { GitPullRequestArrow, Send, CheckCircle, Loader2 } from "lucide-react"
+import { GitPullRequestArrow, CheckCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTriggerWorkflow } from "@/lib/queries"
 
