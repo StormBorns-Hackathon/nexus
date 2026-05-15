@@ -224,10 +224,14 @@ async def deliver_to_webhooks(user_id: UUID, payload: dict) -> list[dict]:
 
 
 async def _deliver(url: str, payload: dict, secret: str | None) -> tuple[int, str]:
-    """POST JSON to a URL. If a secret is set, include HMAC signature header."""
+    """POST JSON to a URL. Auto-detects Discord/Slack webhook URLs and
+    reformats the payload so messages appear natively in those platforms."""
     import json
 
-    body = json.dumps(payload, default=str)
+    # Detect platform from URL and transform payload
+    body_dict = _transform_payload(url, payload)
+    body = json.dumps(body_dict, default=str)
+
     headers = {"Content-Type": "application/json"}
 
     if secret:
@@ -238,3 +242,94 @@ async def _deliver(url: str, payload: dict, secret: str | None) -> tuple[int, st
         resp = await client.post(url, content=body, headers=headers)
 
     return resp.status_code, resp.text
+
+
+def _transform_payload(url: str, payload: dict) -> dict:
+    """Auto-detect the target platform from the URL and return a
+    platform-native payload. Falls back to raw JSON for unknown URLs."""
+
+    event = payload.get("event", "unknown")
+
+    # ── Test events — handle first, before platform detection ──
+    if event == "test":
+        test_msg = payload.get("data", {}).get("message", "Test from Nexus")
+        webhook_name = payload.get("data", {}).get("webhook_name", "")
+        label = f"✅ {test_msg}"
+        if webhook_name:
+            label += f"\n_Webhook: {webhook_name}_"
+
+        if "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url:
+            return {"embeds": [{"title": "Nexus Test", "description": label, "color": 0x22C55E}]}
+
+        if "hooks.slack.com/services" in url:
+            return {"text": label}
+
+        return payload
+
+    workflow = payload.get("workflow", {})
+    summary = workflow.get("result_summary", "")
+    report = workflow.get("report", "")
+    signal = workflow.get("signal_payload", {})
+    signal_type = workflow.get("signal_type", "")
+    status = workflow.get("status", "")
+    title = signal.get("title", "Nexus Pipeline Report")
+    repo = signal.get("repo", "")
+    pr_url = signal.get("url", "")
+    timestamp = payload.get("timestamp", "")
+
+    # ── Discord ──────────────────────────────────────────────
+    if "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url:
+        color = 0x22C55E if status == "completed" else 0xEF4444  # green / red
+
+        fields = []
+        if repo:
+            fields.append({"name": "Repository", "value": repo, "inline": True})
+        if signal_type:
+            fields.append({"name": "Signal", "value": signal_type, "inline": True})
+        if status:
+            fields.append({"name": "Status", "value": status.upper(), "inline": True})
+        if summary and summary != report:
+            fields.append({"name": "Summary", "value": summary[:1024], "inline": False})
+
+        description = report[:4000] if report else summary[:4000] or "No report generated."
+
+        embed = {
+            "title": f"🔗 {title}",
+            "description": description,
+            "color": color,
+            "fields": fields,
+            "footer": {"text": "Nexus Pipeline"},
+            "timestamp": timestamp,
+        }
+        if pr_url:
+            embed["url"] = pr_url
+
+        return {"embeds": [embed]}
+
+    # ── Slack Incoming Webhook ───────────────────────────────
+    if "hooks.slack.com/services" in url:
+        text = report or summary or "No report generated."
+        blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": f"🔗 {title}"[:150], "emoji": True},
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": text[:3000]},
+            },
+        ]
+        context_parts = []
+        if repo:
+            context_parts.append(f"*Repo:* {repo}")
+        if status:
+            context_parts.append(f"*Status:* {status}")
+        if context_parts:
+            blocks.append({
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": " | ".join(context_parts)}],
+            })
+        return {"blocks": blocks, "text": f"Nexus: {title}"}
+
+    # ── Generic / webhook.site / custom API ──────────────────
+    return payload
