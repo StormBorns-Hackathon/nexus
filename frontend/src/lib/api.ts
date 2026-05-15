@@ -1,6 +1,5 @@
 import type { Workflow, WorkflowStep } from "@/types"
 
-
 const API_BASE = "/api"
 
 function getToken(): string | null {
@@ -30,7 +29,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json()
 }
 
-
 export interface WorkflowListResponse {
   workflows: Workflow[]
 }
@@ -51,19 +49,18 @@ export interface WebhookIngestResponse {
   trace_url: string
 }
 
-
 export async function fetchWorkflows(): Promise<WorkflowListResponse> {
   return apiFetch<WorkflowListResponse>("/workflows")
 }
 
 export async function fetchWorkflowDetail(
-  workflowId: string,
+  workflowId: string
 ): Promise<WorkflowDetailResponse> {
   return apiFetch<WorkflowDetailResponse>(`/workflows/${workflowId}`)
 }
 
 export async function triggerWorkflow(
-  githubUrl: string,
+  githubUrl: string
 ): Promise<TriggerResponse> {
   return apiFetch<TriggerResponse>("/workflows/trigger", {
     method: "POST",
@@ -74,14 +71,13 @@ export async function triggerWorkflow(
 export async function ingestWebhook(
   source: string,
   eventType: string,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ): Promise<WebhookIngestResponse> {
   return apiFetch<WebhookIngestResponse>("/webhooks/ingest", {
     method: "POST",
     body: JSON.stringify({ source, event_type: eventType, payload }),
   })
 }
-
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ?? ""
 
