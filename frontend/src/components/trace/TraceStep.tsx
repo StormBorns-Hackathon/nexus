@@ -31,10 +31,24 @@ const stepTypeLabels: Record<StepType, string> = {
   result: "Result",
 }
 
+function getStepMessage(step: WorkflowStep): string | null {
+  const output = step.output_data
+  if (!output) return null
+  if (typeof output.message === "string") return output.message
+  if (typeof output.action_result === "string") return output.action_result
+  if (typeof output.message_preview === "string") return output.message_preview
+  if (typeof output.action_plan === "string") return output.action_plan
+  if (typeof output.summary_length === "number") {
+    return `Research summary ready (${output.summary_length} characters)`
+  }
+  return null
+}
+
 export function TraceStep({ step, index }: { step: WorkflowStep; index: number }) {
   const [expanded, setExpanded] = useState(false)
   const agent = agentConfig[step.agent_name]
   const AgentIcon = agent.icon
+  const message = getStepMessage(step)
 
   return (
     <motion.div
@@ -75,8 +89,8 @@ export function TraceStep({ step, index }: { step: WorkflowStep; index: number }
                 </span>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {step.duration_ms}ms
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+              {message ?? (step.duration_ms !== null ? `${step.duration_ms}ms` : "In progress")}
             </p>
           </div>
           {expanded ? (

@@ -13,6 +13,12 @@ async def send_slack_message(channel: str, text: str) -> dict:
         resp = await client.post(
             "https://slack.com/api/chat.postMessage",
             headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
-            json={"channel": channel or SLACK_CHANNEL_ID, "text": text},
+            json={
+                "channel": channel or SLACK_CHANNEL_ID,
+                "text": text,
+                "mrkdwn": False,
+                "unfurl_links": False,
+                "unfurl_media": False,
+            },
         )
         return resp.json()

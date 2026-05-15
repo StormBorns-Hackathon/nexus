@@ -3,6 +3,7 @@ from app.tools.email_tool import send_email
 from app.services.trace import emit_trace
 import json
 import logging
+import re
 from dotenv import load_dotenv
 import os
 from ..services.llm import client
@@ -16,7 +17,48 @@ SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID")
 
 ACTION_SYSTEM_PROMPT = """You are an action agent. Given research findings and
 an action plan, compose a professional message to deliver via Slack.
+Use plain text only. Do not use Markdown, bullets, headings with #, code
+fences, tables, bold, italics, or link formatting. Keep the message concise
+and include a useful summary even if research is sparse.
 Respond in JSON: {"message": "...", "subject": "..."}"""
+
+
+def _plain_text(value: object) -> str:
+    text = str(value or "")
+    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[*_~>|]", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _fallback_message(state: dict) -> str:
+    signal = state.get("signal_payload", {})
+    summary = _plain_text(state.get("research_summary"))
+    if not summary:
+        summary = _plain_text(signal.get("body")) or "No PR or issue description was provided."
+
+    return _plain_text(
+        "\n".join(
+            [
+                "Nexus Pipeline Report",
+                "",
+                f"Signal: {signal.get('title', 'Unknown')}",
+                f"Repo: {signal.get('repo', 'N/A')}",
+                f"URL: {signal.get('url', 'N/A')}",
+                "",
+                "Summary:",
+                summary[:1500],
+                "",
+                f"Recommended action: {state.get('action_plan', 'Review the signal and follow up with the owner.')}",
+            ]
+        )
+    )
 
 
 async def action_node(state: dict, ws_manager=None) -> dict:
@@ -57,21 +99,13 @@ async def action_node(state: dict, ws_manager=None) -> dict:
         content = response.choices[0].message.content
         if content:
             result = json.loads(content)
-            message_text = result.get("message", "")
+            message_text = _plain_text(result.get("message", ""))
     except Exception as e:
         logger.error(f"Action LLM failed: {e}")
 
     # If LLM failed or returned empty, build a fallback message
     if not message_text:
-        signal = state.get("signal_payload", {})
-        summary = state.get("research_summary", "No research available.")
-        message_text = (
-            f"*Nexus Pipeline Report*\n\n"
-            f"*Signal:* {signal.get('title', 'Unknown')}\n"
-            f"*Repo:* {signal.get('repo', 'N/A')}\n"
-            f"*URL:* {signal.get('url', 'N/A')}\n\n"
-            f"*Summary:*\n{summary[:1500]}"
-        )
+        message_text = _fallback_message(state)
 
     # Execute Slack action
     traces.append(
@@ -110,7 +144,11 @@ async def action_node(state: dict, ws_manager=None) -> dict:
             workflow_id,
             "action",
             "result",
-            {"action_result": action_result, "confirmed": confirmed},
+            {
+                "action_result": action_result,
+                "confirmed": confirmed,
+                "message_preview": message_text[:500],
+            },
         )
     )
 
@@ -118,5 +156,6 @@ async def action_node(state: dict, ws_manager=None) -> dict:
         "action_type": "slack",
         "action_result": action_result,
         "action_confirmed": confirmed,
+        "slack_message": message_text,
         "trace_events": traces,
     }

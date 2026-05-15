@@ -5,6 +5,43 @@ import { WorkflowStatusBadge } from "@/components/workflow/WorkflowStatus"
 import { TraceStep } from "@/components/trace/TraceStep"
 import { LiveIndicator } from "@/components/trace/LiveIndicator"
 import { useWorkflowDetail } from "@/lib/queries"
+import type { AgentName, StepType, WorkflowStep } from "@/types"
+
+const runningPlaceholders: Array<{
+  agent_name: AgentName
+  step_type: StepType
+  message: string
+}> = [
+  {
+    agent_name: "planner",
+    step_type: "thinking",
+    message: "Planning the investigation...",
+  },
+  {
+    agent_name: "researcher",
+    step_type: "thinking",
+    message: "Waiting for the research agent...",
+  },
+  {
+    agent_name: "action",
+    step_type: "thinking",
+    message: "Action agent will prepare the Slack update...",
+  },
+]
+
+function buildPlaceholderSteps(workflowId: string): WorkflowStep[] {
+  return runningPlaceholders.map((step, index) => ({
+    id: `${workflowId}-placeholder-${index}`,
+    workflow_id: workflowId,
+    agent_name: step.agent_name,
+    step_type: step.step_type,
+    input_data: null,
+    output_data: { message: step.message },
+    tool_name: null,
+    duration_ms: null,
+    created_at: new Date().toISOString(),
+  }))
+}
 
 export function WorkflowDetail() {
   const { id } = useParams<{ id: string }>()
@@ -32,6 +69,10 @@ export function WorkflowDetail() {
   }
 
   const { workflow, steps } = data
+  const visibleSteps =
+    steps.length > 0 || workflow.status === "completed" || workflow.status === "failed"
+      ? steps
+      : buildPlaceholderSteps(workflow.id)
 
   const title =
     (workflow.signal_payload?.title as string) ??
@@ -122,12 +163,12 @@ export function WorkflowDetail() {
           <h2 className="font-heading text-base font-semibold text-foreground">
             Agent Trace
           </h2>
-          <span className="text-xs text-muted-foreground">{steps.length} steps</span>
+          <span className="text-xs text-muted-foreground">{visibleSteps.length} steps</span>
         </div>
 
-        {steps.length > 0 ? (
+        {visibleSteps.length > 0 ? (
           <div className="relative">
-            {steps.map((step, i) => (
+            {visibleSteps.map((step, i) => (
               <TraceStep key={step.id} step={step} index={i} />
             ))}
 
@@ -136,7 +177,7 @@ export function WorkflowDetail() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: steps.length * 0.08 + 0.3 }}
+                transition={{ delay: visibleSteps.length * 0.08 + 0.3 }}
                 className="ml-2 flex items-center gap-3 pl-2"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-chart-1/10">
@@ -151,7 +192,7 @@ export function WorkflowDetail() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: steps.length * 0.08 + 0.3 }}
+                transition={{ delay: visibleSteps.length * 0.08 + 0.3 }}
                 className="ml-2 flex items-center gap-3 pl-2"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-chart-3/10">
@@ -166,7 +207,7 @@ export function WorkflowDetail() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: steps.length * 0.08 + 0.3 }}
+                transition={{ delay: visibleSteps.length * 0.08 + 0.3 }}
                 className="ml-2 flex items-center gap-3 pl-2"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive/10">
@@ -194,7 +235,7 @@ export function WorkflowDetail() {
           Signal Payload
         </h2>
         <pre className="overflow-x-auto rounded-xl border border-border bg-muted p-4 font-mono text-xs leading-relaxed text-muted-foreground">
-          {JSON.stringify(workflow.signal_payload, null, 2)}
+          {JSON.stringify(workflow.signal_payload ?? {}, null, 2)}
         </pre>
       </motion.div>
     </div>

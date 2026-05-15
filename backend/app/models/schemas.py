@@ -21,6 +21,7 @@ class WorkflowCreateResponse(BaseModel):
 class WorkflowSummary(BaseModel):
     id: UUID
     signal_type: str
+    signal_payload: Optional[Dict[str, Any]] = None
     status: WorkflowStatus
     result_summary: Optional[str]
     created_at: datetime
