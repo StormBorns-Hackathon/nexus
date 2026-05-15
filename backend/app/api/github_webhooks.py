@@ -229,10 +229,15 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
         # Format the notification message
         message = _format_pr_notification(event)
 
-        # Send to all mapped channels
+        # Send to all mapped channels (deduplicate by channel_id)
         sent_count = 0
         errors = []
+        seen_channels = set()
         for m in mappings:
+            if m.channel_id in seen_channels:
+                continue
+            seen_channels.add(m.channel_id)
+
             inst = installations_map.get(m.installation_id)
             if not inst:
                 errors.append(f"No installation for mapping {m.id}")
