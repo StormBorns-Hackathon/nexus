@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Menu, X, Zap } from "lucide-react"
@@ -59,19 +60,23 @@ export function Navbar() {
 
         {/* CTA */}
         <div className="hidden items-center gap-3 md:flex">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Docs
-          </Button>
-          <Button
-            size="sm"
-            className="glow-primary-sm bg-primary px-5 text-primary-foreground hover:bg-primary/90"
-          >
-            Get Started
-          </Button>
+          <Link to="/signin">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Sign In
+            </Button>
+          </Link>
+          <Link to="/signup">
+            <Button
+              size="sm"
+              className="glow-primary-sm bg-primary px-5 text-primary-foreground hover:bg-primary/90"
+            >
+              Get Started
+            </Button>
+          </Link>
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -107,12 +112,23 @@ export function Navbar() {
                 {link.label}
               </a>
             ))}
-            <Button
-              size="sm"
-              className="glow-primary-sm mt-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Get Started
-            </Button>
+            <Link to="/signin">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground hover:text-foreground"
+              >
+                Sign In
+              </Button>
+            </Link>
+            <Link to="/signup">
+              <Button
+                size="sm"
+                className="glow-primary-sm mt-1 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Get Started
+              </Button>
+            </Link>
           </div>
         </motion.div>
       )}

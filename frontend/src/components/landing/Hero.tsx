@@ -1,4 +1,4 @@
-
+import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Play, Zap, Search, Send } from "lucide-react"
@@ -66,13 +66,14 @@ function FloatingDashboard() {
           </div>
 
           {/* Agent Steps */}
-          {[
+          {([
             {
               agent: "Planner",
               status: "Completed",
               detail: "Decomposed into 3 research tasks",
               icon: Zap,
               done: true,
+              active: false,
             },
             {
               agent: "Researcher",
@@ -88,8 +89,9 @@ function FloatingDashboard() {
               detail: "Will send summary to #eng-alerts",
               icon: Send,
               done: false,
+              active: false,
             },
-          ].map((step, i) => (
+          ] as const).map((step, i) => (
             <motion.div
               key={step.agent}
               initial={{ opacity: 0, x: -20 }}
@@ -187,21 +189,25 @@ export function Hero() {
             variants={itemVariants}
             className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
-            <Button
-              size="lg"
-              className="glow-primary group bg-primary px-8 text-primary-foreground transition-all duration-300 hover:scale-[1.02] hover:bg-primary/90"
-            >
-              Fire a Webhook
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="lg"
-              className="group text-muted-foreground hover:text-foreground"
-            >
-              <Play className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" />
-              Watch Demo
-            </Button>
+            <Link to="/trigger">
+              <Button
+                size="lg"
+                className="glow-primary group bg-primary px-8 text-primary-foreground transition-all duration-300 hover:scale-[1.02] hover:bg-primary/90"
+              >
+                Fire a Webhook
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            </Link>
+            <Link to="/dashboard">
+              <Button
+                variant="ghost"
+                size="lg"
+                className="group text-muted-foreground hover:text-foreground"
+              >
+                <Play className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" />
+                Watch Demo
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
 
