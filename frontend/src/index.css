@@ -129,6 +129,38 @@
     cursor: pointer;
     }
   html {
-    @apply font-sans;
+    @apply font-sans scroll-smooth;
     }
+}
+
+/* Custom utility classes for the landing page */
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, oklch(0.65 0.18 46), oklch(0.6 0.17 30), oklch(0.55 0.16 50));
+  }
+
+  .text-gradient-subtle {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, oklch(0.75 0.12 46), oklch(0.9 0 0));
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 40px oklch(0.473 0.137 46.201 / 15%), 0 0 80px oklch(0.473 0.137 46.201 / 8%);
+  }
+
+  .glow-primary-sm {
+    box-shadow: 0 0 20px oklch(0.473 0.137 46.201 / 10%), 0 0 40px oklch(0.473 0.137 46.201 / 5%);
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(oklch(1 0 0 / 3%) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(1 0 0 / 3%) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
+  .bg-gradient-radial {
+    background: radial-gradient(ellipse at center, var(--tw-gradient-from), var(--tw-gradient-to));
+  }
 }
