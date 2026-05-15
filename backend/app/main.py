@@ -2,7 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .models.database import Base, engine
-from app.api import webhooks, workflows, websocket
+from .models import user_models  # noqa: F401 — ensures User table is registered with Base
+from app.api import webhooks, workflows, websocket, auth
 
 
 @asynccontextmanager
@@ -22,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
 app.include_router(websocket.router, prefix="/ws", tags=["websocket"])

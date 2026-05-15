@@ -1,16 +1,20 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, Mail, Building2, Globe, Save, LogOut } from "lucide-react"
-import { Link } from "react-router-dom"
+import { useAuth } from "@/lib/auth-context"
 
 export function ProfilePage() {
-  const [name, setName] = useState("Jane Doe")
-  const [email, setEmail] = useState("jane@nexus-platform.com")
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const [name, setName] = useState(user?.name ?? "")
+  const [email] = useState(user?.email ?? "")
   const [org, setOrg] = useState("Nexus Platform")
   const [role, setRole] = useState("Engineering Lead")
   const [saved, setSaved] = useState(false)
@@ -21,7 +25,12 @@ export function ProfilePage() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const initials = name
+  function handleLogout() {
+    logout()
+    navigate("/signin")
+  }
+
+  const initials = (user?.name ?? "U")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -54,16 +63,26 @@ export function ProfilePage() {
         >
           <Card className="border-border bg-card">
             <CardContent className="flex flex-col items-center py-8">
-              <Avatar size="lg" className="h-16 w-16">
+              <Avatar className="h-16 w-16">
+                {user?.avatar_url ? (
+                  <AvatarImage src={user.avatar_url} alt={user.name} />
+                ) : null}
                 <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <h2 className="mt-4 font-heading text-base font-semibold text-card-foreground">
-                {name}
+                {user?.name}
               </h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{role}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{user?.email}</p>
+              {user?.github_id && (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                  </svg>
+                  GitHub linked
+                </span>
+              )}
 
               <Separator className="my-6" />
 
@@ -73,23 +92,23 @@ export function ProfilePage() {
                   <span className="font-medium text-card-foreground">{org}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Workflows run</span>
-                  <span className="font-medium text-card-foreground">47</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Member since</span>
-                  <span className="font-medium text-card-foreground">May 2026</span>
+                  <span className="text-muted-foreground">Auth method</span>
+                  <span className="font-medium text-card-foreground">
+                    {user?.github_id ? "GitHub" : "Email"}
+                  </span>
                 </div>
               </div>
 
               <Separator className="my-6" />
 
-              <Link to="/signin" className="w-full">
-                <Button variant="outline" className="w-full gap-2 text-destructive hover:text-destructive">
-                  <LogOut className="h-3.5 w-3.5" />
-                  Sign out
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                className="w-full gap-2 text-destructive hover:text-destructive"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
@@ -136,8 +155,8 @@ export function ProfilePage() {
                         id="profile-email"
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10"
+                        disabled
+                        className="pl-10 opacity-60"
                       />
                     </div>
                   </div>
