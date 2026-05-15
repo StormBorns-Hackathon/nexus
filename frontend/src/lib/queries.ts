@@ -18,6 +18,7 @@ import {
   disconnectSlackInstallation,
   addRepoMapping,
   deleteRepoMapping,
+  repairRepoWebhook,
   setDefaultChannel,
   type WorkflowListResponse,
   type WorkflowDetailResponse,
@@ -203,3 +204,18 @@ export function useSetDefaultChannel() {
     },
   })
 }
+
+export function useRepairWebhook() {
+  const queryClient = useQueryClient()
+  return useMutation<
+    { ok: boolean; repo_full_name: string; github_webhook_id: number; message: string },
+    Error,
+    string
+  >({
+    mutationFn: (mappingId) => repairRepoWebhook(mappingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.repoMappings })
+    },
+  })
+}
+
