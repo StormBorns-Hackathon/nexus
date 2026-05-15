@@ -58,10 +58,15 @@ async def run_workflow(workflow_id: UUID) -> None:
                 )
                 mappings = result_maps.scalars().all()
 
-                # Build channels list with per-channel bot tokens
+                # Build channels list with per-channel bot tokens (deduplicate by channel_id)
                 installations_map = {inst.id: inst for inst in installations}
                 channels = []
+                seen_channel_ids = set()
                 for m in mappings:
+                    if m.channel_id in seen_channel_ids:
+                        continue
+                    seen_channel_ids.add(m.channel_id)
+
                     inst = installations_map.get(m.installation_id)
                     if inst:
                         channels.append({
