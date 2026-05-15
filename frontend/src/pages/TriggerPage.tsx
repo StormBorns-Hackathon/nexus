@@ -19,7 +19,7 @@ export function TriggerPage() {
               Trigger Pipeline
             </h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Provide a GitHub commit URL to analyze it with the agent pipeline.
+              Provide a GitHub PR or Issue URL to analyze it with the agent pipeline.
             </p>
           </div>
         </div>

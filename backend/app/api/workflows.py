@@ -91,33 +91,35 @@ async def get_workflow_detail(
     return schemas.WorkflowDetail(workflow=summary, steps=steps_serialized)
 
 
-COMMIT_URL_PATTERN = re.compile(
-    r"https?://github\.com/([^/]+)/([^/]+)/commit/([a-f0-9]+)",
+GITHUB_URL_PATTERN = re.compile(
+    r"https?://github\.com/([^/]+)/([^/]+)/(pull|issues)/(\d+)",
     re.IGNORECASE,
 )
 
 
 @router.post("/trigger", status_code=201)
 async def trigger_workflow(
-    body: schemas.CommitTriggerRequest,
+    body: schemas.GithubTriggerRequest,
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Parse the commit URL
-    match = COMMIT_URL_PATTERN.match(body.commit_url.strip())
+    url = body.github_url.strip()
+    match = GITHUB_URL_PATTERN.match(url)
     if not match:
         raise HTTPException(
             status_code=400,
-            detail="Invalid GitHub commit URL. Expected format: https://github.com/owner/repo/commit/sha",
+            detail="Invalid GitHub URL. Expected: https://github.com/owner/repo/pull/123 or https://github.com/owner/repo/issues/123",
         )
 
-    owner, repo, sha = match.groups()
+    owner, repo, kind, number = match.groups()
+    is_pr = kind == "pull"
 
-    # Fetch commit details from GitHub API
+    # Fetch details from GitHub API
+    api_path = f"https://api.github.com/repos/{owner}/{repo}/{'pulls' if is_pr else 'issues'}/{number}"
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}",
+            api_path,
             headers={"Accept": "application/vnd.github.v3+json"},
             timeout=10,
         )
@@ -125,25 +127,33 @@ async def trigger_workflow(
     if resp.status_code != 200:
         raise HTTPException(
             status_code=400,
-            detail=f"Could not fetch commit from GitHub (HTTP {resp.status_code}). Make sure the repo is public and the URL is correct.",
+            detail=f"Could not fetch from GitHub (HTTP {resp.status_code}). Make sure the repo is public and the URL is correct.",
         )
 
-    commit_data = resp.json()
+    data = resp.json()
 
     payload = {
-        "title": commit_data["commit"]["message"].split("\n")[0],
-        "url": body.commit_url.strip(),
-        "body": commit_data["commit"]["message"],
-        "author": commit_data["commit"]["author"]["name"],
+        "title": data.get("title", ""),
+        "url": url,
+        "body": data.get("body", "") or "",
+        "author": data.get("user", {}).get("login", "unknown"),
         "repo": f"{owner}/{repo}",
-        "sha": sha,
-        "files_changed": len(commit_data.get("files", [])),
-        "stats": commit_data.get("stats", {}),
+        "number": int(number),
+        "state": data.get("state", ""),
+        "labels": [l["name"] for l in data.get("labels", [])],
     }
+
+    if is_pr:
+        payload["changed_files"] = data.get("changed_files", 0)
+        payload["additions"] = data.get("additions", 0)
+        payload["deletions"] = data.get("deletions", 0)
+        payload["merged"] = data.get("merged", False)
+
+    signal_type = "github_pr" if is_pr else "github_issue"
 
     workflow = Workflow(
         user_id=user.id,
-        signal_type="github_commit",
+        signal_type=signal_type,
         signal_payload=payload,
         status=WorkflowStatus.pending,
     )

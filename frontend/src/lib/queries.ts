@@ -57,8 +57,8 @@ export function useWorkflowDetail(
 export function useTriggerWorkflow() {
   const queryClient = useQueryClient()
 
-  return useMutation<TriggerResponse, Error, { commitUrl: string }>({
-    mutationFn: ({ commitUrl }) => triggerWorkflow(commitUrl),
+  return useMutation<TriggerResponse, Error, { githubUrl: string }>({
+    mutationFn: ({ githubUrl }) => triggerWorkflow(githubUrl),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.workflows })
     },

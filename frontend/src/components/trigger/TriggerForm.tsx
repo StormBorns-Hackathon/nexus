@@ -4,24 +4,25 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { GitCommitHorizontal, Send, CheckCircle, Loader2, ExternalLink } from "lucide-react"
+import { GitPullRequestArrow, Send, CheckCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTriggerWorkflow } from "@/lib/queries"
 
-const COMMIT_URL_REGEX = /^https?:\/\/github\.com\/[^/]+\/[^/]+\/commit\/[a-f0-9]+/i
+const GITHUB_URL_REGEX = /^https?:\/\/github\.com\/[^/]+\/[^/]+\/(pull|issues)\/\d+/i
 
 export function TriggerForm() {
-  const [commitUrl, setCommitUrl] = useState("")
+  const [githubUrl, setGithubUrl] = useState("")
   const navigate = useNavigate()
   const triggerMutation = useTriggerWorkflow()
 
-  const isValidUrl = COMMIT_URL_REGEX.test(commitUrl.trim())
+  const isValidUrl = GITHUB_URL_REGEX.test(githubUrl.trim())
+  const urlType = githubUrl.includes("/pull/") ? "Pull Request" : githubUrl.includes("/issues/") ? "Issue" : null
 
   function handleTrigger() {
     if (!isValidUrl) return
 
     triggerMutation.mutate(
-      { commitUrl: commitUrl.trim() },
+      { githubUrl: githubUrl.trim() },
       {
         onSuccess: (data) => {
           setTimeout(() => {
@@ -42,12 +43,12 @@ export function TriggerForm() {
         <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <GitCommitHorizontal className="h-4 w-4 text-primary" />
+              <GitPullRequestArrow className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-medium text-card-foreground">GitHub Commit URL</h3>
+              <h3 className="text-sm font-medium text-card-foreground">GitHub PR or Issue URL</h3>
               <p className="text-xs text-muted-foreground">
-                Paste a public GitHub commit URL to analyze it with the agent pipeline.
+                Paste a public GitHub pull request or issue URL to analyze it with the agent pipeline.
               </p>
             </div>
           </div>
@@ -55,26 +56,32 @@ export function TriggerForm() {
           <div className="relative">
             <Input
               type="url"
-              placeholder="https://github.com/owner/repo/commit/abc123..."
-              value={commitUrl}
+              placeholder="https://github.com/owner/repo/pull/123 or /issues/456"
+              value={githubUrl}
               onChange={(e) => {
-                setCommitUrl(e.target.value)
+                setGithubUrl(e.target.value)
                 if (triggerMutation.isError) triggerMutation.reset()
               }}
               className={cn(
                 "pr-10 font-mono text-xs",
-                commitUrl && !isValidUrl && "border-destructive/50 focus:border-destructive",
-                commitUrl && isValidUrl && "border-chart-1/50 focus:border-chart-1",
+                githubUrl && !isValidUrl && "border-destructive/50 focus:border-destructive",
+                githubUrl && isValidUrl && "border-chart-1/50 focus:border-chart-1",
               )}
             />
-            {commitUrl && isValidUrl && (
+            {githubUrl && isValidUrl && (
               <CheckCircle className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-chart-1" />
             )}
           </div>
 
-          {commitUrl && !isValidUrl && (
+          {githubUrl && !isValidUrl && (
             <p className="mt-2 text-xs text-destructive/80">
-              Enter a valid GitHub commit URL (e.g. https://github.com/owner/repo/commit/sha)
+              Enter a valid GitHub PR or Issue URL (e.g. https://github.com/owner/repo/pull/123)
+            </p>
+          )}
+
+          {githubUrl && isValidUrl && urlType && (
+            <p className="mt-2 text-xs text-chart-1/80">
+              Detected: <span className="font-medium">{urlType}</span>
             </p>
           )}
         </CardContent>
@@ -88,9 +95,9 @@ export function TriggerForm() {
           </p>
           <div className="space-y-2.5">
             {[
-              "Fetch commit details, changed files, and stats from GitHub",
-              "Planner agent analyzes the commit and creates an action plan",
-              "Researcher agent gathers context about the changes",
+              "Fetch PR/Issue details, description, and labels from GitHub",
+              "Planner agent analyzes the context and creates an action plan",
+              "Researcher agent gathers additional context about the topic",
               "Action agent delivers a summary to your configured Slack channel",
             ].map((step, i) => (
               <div key={i} className="flex items-start gap-2.5">
@@ -134,7 +141,7 @@ export function TriggerForm() {
           ) : isLoading ? (
             <>
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              Analyzing commit…
+              Fetching from GitHub…
             </>
           ) : (
             <>

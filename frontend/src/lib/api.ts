@@ -63,11 +63,11 @@ export async function fetchWorkflowDetail(
 }
 
 export async function triggerWorkflow(
-  commitUrl: string,
+  githubUrl: string,
 ): Promise<TriggerResponse> {
   return apiFetch<TriggerResponse>("/workflows/trigger", {
     method: "POST",
-    body: JSON.stringify({ commit_url: commitUrl }),
+    body: JSON.stringify({ github_url: githubUrl }),
   })
 }
 

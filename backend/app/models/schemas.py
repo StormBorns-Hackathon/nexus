@@ -36,5 +36,5 @@ class WorkflowDetail(BaseModel):
     steps: list[Dict[str, Any]]
 
 
-class CommitTriggerRequest(BaseModel):
-    commit_url: str
+class GithubTriggerRequest(BaseModel):
+    github_url: str
