@@ -148,9 +148,12 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
         raise HTTPException(status_code=400, detail="Missing repository info")
 
     action = event.get("action", "")
-    # Only notify on meaningful PR actions
-    notify_actions = {"opened", "closed", "reopened", "synchronize", "ready_for_review", "review_requested"}
-    if action not in notify_actions:
+    # Actions that create a full workflow (agent pipeline run)
+    workflow_actions = {"opened"}
+    # Actions that only send a Slack notification (no workflow)
+    notify_only_actions = {"closed", "reopened", "synchronize", "ready_for_review", "review_requested"}
+    all_actions = workflow_actions | notify_only_actions
+    if action not in all_actions:
         return {"ok": True, "message": f"ignored action: {action}"}
 
     # ── Signature verification ──
@@ -194,25 +197,25 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
             logger.info(f"No channel mappings for {repo_full_name}")
             return {"ok": True, "message": "no mappings"}
 
-        # Create one workflow per mapped Nexus user, then let the normal pipeline
-        # produce the trace and Slack report for that user's mapped channels.
-        mapped_user_ids = {m.user_id for m in mappings}
-        workflow_payload = _build_workflow_payload(event)
+        # Only create workflows for "opened" PRs — other actions just notify
         workflows = []
-        for user_id in mapped_user_ids:
-            workflow = Workflow(
-                user_id=user_id,
-                signal_type="github_pr",
-                signal_payload=workflow_payload,
-                status=WorkflowStatus.pending,
-            )
-            db.add(workflow)
-            workflows.append(workflow)
+        if action in workflow_actions:
+            mapped_user_ids = {m.user_id for m in mappings}
+            workflow_payload = _build_workflow_payload(event)
+            for user_id in mapped_user_ids:
+                workflow = Workflow(
+                    user_id=user_id,
+                    signal_type="github_pr",
+                    signal_payload=workflow_payload,
+                    status=WorkflowStatus.pending,
+                )
+                db.add(workflow)
+                workflows.append(workflow)
 
-        await db.commit()
-        for workflow in workflows:
-            await db.refresh(workflow)
-            background_tasks.add_task(run_workflow_background, workflow.id)
+            await db.commit()
+            for workflow in workflows:
+                await db.refresh(workflow)
+                background_tasks.add_task(run_workflow_background, workflow.id)
 
         # Group mappings by installation_id to batch token lookups
         installation_ids = {m.installation_id for m in mappings if m.installation_id}
