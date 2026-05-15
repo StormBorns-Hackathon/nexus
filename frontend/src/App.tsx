@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { AuthProvider } from "@/lib/auth-context"
 import { Home } from "@/pages/Home"
 import { SignIn } from "@/pages/SignIn"
@@ -28,13 +29,13 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            {/* Public pages — no sidebar/header */}
-            <Route path="/" element={<Home />} />
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/auth/github/callback" element={<GithubCallback />} />
-            <Route path="/integrations/slack/callback" element={<SlackCallback />} />
+          <TooltipProvider>
+            <Routes>
+              {/* Public pages — no sidebar/header */}
+              <Route path="/" element={<Home />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/auth/github/callback" element={<GithubCallback />} />
 
             {/* App pages — protected + layout */}
             <Route element={<ProtectedRoute />}>
@@ -47,9 +48,10 @@ export function App() {
               </Route>
             </Route>
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
