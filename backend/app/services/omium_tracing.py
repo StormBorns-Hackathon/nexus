@@ -1,8 +1,10 @@
 """
 Omium SDK integration for Nexus agent pipeline observability.
 
-Initialises Omium tracing at startup and auto-instruments LangGraph.
-Exposes helper decorators for manual tracing of custom steps.
+Initialises Omium at FastAPI startup so LangGraph auto-instrumentation
+is active before any pipeline runs.  Every `pipeline.ainvoke()` call
+will automatically produce a trace with per-node spans, checkpoints,
+and a flush to the Omium dashboard.
 """
 
 import os
@@ -35,14 +37,11 @@ def init_omium() -> bool:
 
         omium.init(
             api_key=api_key,
-            api_base_url=api_url or "https://api.omium.ai/api/v1",
+            api_base_url=api_url or "https://api.omium.ai",
             project="nexus",
             auto_trace=True,
             auto_checkpoint=True,
         )
-
-        # Auto-instrument LangGraph so every node & edge is traced
-        omium.instrument_langgraph()
 
         _omium_initialised = True
         logger.info("Omium tracing initialised (project=nexus)")
