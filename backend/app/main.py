@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from .models.database import Base, engine
 from .models import user_models  # noqa: F401 — ensures User table is registered with Base
-from app.api import webhooks, workflows, websocket, auth
+from .models import slack_models  # noqa: F401 — ensures Slack tables are registered with Base
+from app.api import webhooks, workflows, websocket, auth, slack
 
 
 @asynccontextmanager
@@ -31,6 +32,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
 app.include_router(websocket.router, prefix="/ws", tags=["websocket"])
+app.include_router(slack.router, prefix="/api/slack", tags=["slack"])
 
 
 @app.get("/")

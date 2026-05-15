@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  Plug,
 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils"
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Trigger", href: "/trigger", icon: Radio },
+  { label: "Integrations", href: "/integrations", icon: Plug },
   { label: "Profile", href: "/profile", icon: User },
 ]
 

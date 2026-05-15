@@ -84,3 +84,68 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ?? ""
 export function apiUrl(path: string) {
   return `${backendUrl}${path.startsWith("/") ? path : `/${path}`}`
 }
+
+// ── Slack Integration ──
+
+export interface SlackStatus {
+  connected: boolean
+  team_name?: string
+  team_id?: string
+  installed_at?: string
+}
+
+export interface SlackChannel {
+  id: string
+  name: string
+  is_private: boolean
+}
+
+export interface RepoChannelMapping {
+  id: string
+  repo_full_name: string
+  channel_id: string
+  channel_name: string
+  created_at: string
+}
+
+export async function getSlackAuthUrl(): Promise<{ url: string }> {
+  return apiFetch<{ url: string }>("/slack/auth-url")
+}
+
+export async function connectSlack(code: string, redirectUri: string): Promise<{ ok: boolean; team_name: string }> {
+  return apiFetch("/slack/callback", {
+    method: "POST",
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  })
+}
+
+export async function getSlackStatus(): Promise<SlackStatus> {
+  return apiFetch<SlackStatus>("/slack/status")
+}
+
+export async function disconnectSlack(): Promise<{ ok: boolean }> {
+  return apiFetch("/slack/disconnect", { method: "DELETE" })
+}
+
+export async function getSlackChannels(): Promise<{ channels: SlackChannel[] }> {
+  return apiFetch("/slack/channels")
+}
+
+export async function getRepoMappings(): Promise<{ mappings: RepoChannelMapping[] }> {
+  return apiFetch("/slack/mappings")
+}
+
+export async function addRepoMapping(
+  repoFullName: string,
+  channelId: string,
+  channelName: string,
+): Promise<RepoChannelMapping> {
+  return apiFetch("/slack/mappings", {
+    method: "POST",
+    body: JSON.stringify({ repo_full_name: repoFullName, channel_id: channelId, channel_name: channelName }),
+  })
+}
+
+export async function deleteRepoMapping(mappingId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/slack/mappings/${mappingId}`, { method: "DELETE" })
+}

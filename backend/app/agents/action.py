@@ -1,4 +1,4 @@
-from app.tools.slack import send_slack_message
+from app.tools.slack import send_slack_message, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID
 from app.tools.email_tool import send_email
 from app.services.trace import emit_trace
 import json
@@ -12,8 +12,6 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "openai/gpt-oss-120b:free"
-SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID")
 
 ACTION_SYSTEM_PROMPT = """You are an action agent. Given research findings and
 an action plan, compose a professional message to deliver via Slack.
@@ -64,6 +62,7 @@ def _fallback_message(state: dict) -> str:
 async def action_node(state: dict, ws_manager=None) -> dict:
     workflow_id = state["workflow_id"]
     traces = []
+    user_slack = state.get("user_slack_config", {})
 
     traces.append(
         await emit_trace(
@@ -107,36 +106,67 @@ async def action_node(state: dict, ws_manager=None) -> dict:
     if not message_text:
         message_text = _fallback_message(state)
 
-    # Execute Slack action
-    traces.append(
-        await emit_trace(
-            ws_manager,
-            workflow_id,
-            "action",
-            "tool_call",
-            {"tool": "send_slack_message", "channel": SLACK_CHANNEL_ID},
+    # Determine which bot token and channels to use
+    bot_token = user_slack.get("bot_token") or SLACK_BOT_TOKEN
+    target_channels = user_slack.get("channels", [])
+
+    # If no mapped channels, fall back to .env channel
+    if not target_channels and SLACK_CHANNEL_ID:
+        target_channels = [{"id": SLACK_CHANNEL_ID, "name": "default"}]
+
+    if not bot_token:
+        traces.append(
+            await emit_trace(
+                ws_manager, workflow_id, "action", "result",
+                {"action_result": "Slack not configured", "confirmed": False},
+            )
         )
-    )
+        return {
+            "action_type": "slack",
+            "action_result": "Slack not configured — connect Slack in Integrations",
+            "action_confirmed": False,
+            "trace_events": traces,
+        }
 
-    action_result = "No action configured"
-    confirmed = False
+    if not target_channels:
+        traces.append(
+            await emit_trace(
+                ws_manager, workflow_id, "action", "result",
+                {"action_result": "No channels mapped", "confirmed": False},
+            )
+        )
+        return {
+            "action_type": "slack",
+            "action_result": "No Slack channels mapped for this repo — add mappings in Integrations",
+            "action_confirmed": False,
+            "trace_events": traces,
+        }
 
-    if not SLACK_CHANNEL_ID:
-        action_result = "Slack not configured (no channel ID)"
-        logger.warning("SLACK_CHANNEL_ID is not set")
-    elif not SLACK_BOT_TOKEN:
-        action_result = f"[DRY RUN] Would send: {message_text[:200]}"
-        confirmed = True
-    else:
+    # Send to all target channels
+    results = []
+    for ch in target_channels:
+        channel_id = ch["id"]
+        channel_name = ch.get("name", channel_id)
+
+        traces.append(
+            await emit_trace(
+                ws_manager, workflow_id, "action", "tool_call",
+                {"tool": "send_slack_message", "channel": channel_name},
+            )
+        )
+
         try:
-            slack_resp = await send_slack_message(SLACK_CHANNEL_ID, message_text)
-            confirmed = slack_resp.get("ok", False)
-            action_result = f"Slack: {'sent' if confirmed else 'failed'}"
-            if not confirmed:
-                logger.error(f"Slack API error: {slack_resp}")
+            slack_resp = await send_slack_message(channel_id, message_text, bot_token=bot_token)
+            sent = slack_resp.get("ok", False)
+            results.append(f"#{channel_name}: {'sent' if sent else 'failed'}")
+            if not sent:
+                logger.error(f"Slack error for #{channel_name}: {slack_resp}")
         except Exception as e:
-            action_result = f"Slack failed: {str(e)}"
-            logger.error(f"Slack send exception: {e}")
+            results.append(f"#{channel_name}: error ({e})")
+            logger.error(f"Slack exception for #{channel_name}: {e}")
+
+    action_result = "Slack: " + ", ".join(results)
+    confirmed = any("sent" in r for r in results)
 
     traces.append(
         await emit_trace(
@@ -144,11 +174,7 @@ async def action_node(state: dict, ws_manager=None) -> dict:
             workflow_id,
             "action",
             "result",
-            {
-                "action_result": action_result,
-                "confirmed": confirmed,
-                "message_preview": message_text[:500],
-            },
+            {"action_result": action_result, "confirmed": confirmed},
         )
     )
 

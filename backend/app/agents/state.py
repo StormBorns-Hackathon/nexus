@@ -21,3 +21,4 @@ class AgentState(TypedDict):
     action_confirmed: bool
     trace_events: Annotated[list[TraceEvent], lambda a, b: a + b]
     error: str | None
+    user_slack_config: dict
