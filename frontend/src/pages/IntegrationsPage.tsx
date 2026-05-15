@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import {
-  // Plug,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -15,7 +14,8 @@ import {
   Hash,
   GitBranch,
   Building2,
-  Zap
+  Zap,
+  ChevronDown,
 } from "lucide-react"
 import {
   useSlackStatus,
@@ -25,7 +25,6 @@ import {
   useAddMapping,
   useDeleteMapping,
   useSetDefaultChannel,
-  // useRepairWebhook,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import type { SlackInstallation } from "@/lib/api"
@@ -108,19 +107,12 @@ export function IntegrationsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex items-center gap-3">
-          {/* <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <Plug className="h-4 w-4 text-primary" />
-          </div> */}
-          <div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
-              Integrations
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Connect services to receive automated PR alerts and notifications.
-            </p>
-          </div>
-        </div>
+        <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
+          Integrations
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Connect services to receive automated PR alerts and notifications.
+        </p>
       </motion.div>
 
       <div className="mt-8 max-w-3xl space-y-6">
@@ -166,7 +158,6 @@ export function IntegrationsPage() {
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {/* Connected workspaces */}
               {installations.map((inst: SlackInstallation) => (
                 <WorkspaceRow
                   key={inst.id}
@@ -184,14 +175,12 @@ export function IntegrationsPage() {
                 />
               ))}
 
-              {/* Connect another workspace button */}
               <Button
                 onClick={handleConnectSlack}
                 variant={isConnected ? "outline" : "default"}
                 className="gap-2"
                 size="sm"
               >
-                {/* <Plus className="h-3.5 w-3.5" /> */}
                 {isConnected ? "Connect Another Workspace" : "Connect Slack"}
               </Button>
             </CardContent>
@@ -211,7 +200,7 @@ export function IntegrationsPage() {
                   "flex h-10 w-10 items-center justify-center rounded-lg",
                   ghAppInstalled ? "bg-chart-1/10" : "bg-primary/10"
                 )}>
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="oklch(0.473 0.137 46.201)">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                   </svg>
                 </div>
@@ -248,7 +237,6 @@ export function IntegrationsPage() {
                       }
                     }}
                   >
-                    <GitBranch className="h-3.5 w-3.5" />
                     Manage or add repos
                   </Button>
                 </div>
@@ -259,6 +247,7 @@ export function IntegrationsPage() {
                   </p>
                   <Button
                     className="gap-2"
+                    size="sm"
                     onClick={() => {
                       const slug = import.meta.env.VITE_GITHUB_APP_SLUG
                       if (slug) {
@@ -266,7 +255,6 @@ export function IntegrationsPage() {
                       }
                     }}
                   >
-                    <GitBranch className="h-4 w-4" />
                     Install GitHub App
                   </Button>
                 </div>
@@ -283,27 +271,30 @@ export function IntegrationsPage() {
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card className="border-border bg-card">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-chart-3" />
-                  <CardTitle className="font-heading text-base font-semibold text-card-foreground">
-                    Repo → Channel Mappings
-                  </CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Zap className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="font-heading text-base font-semibold text-card-foreground">
+                      Repo → Channel Mappings
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Route GitHub PR notifications to specific channels across any connected workspace.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Route GitHub PR notifications to specific channels across any connected workspace.
-                  One repo can alert multiple channels and workspaces.
-                </p>
               </CardHeader>
 
-              <CardContent className="space-y-4">
-                {/* Add new mapping */}
-                <div className="space-y-3">
-                  <div className="flex items-end gap-3">
+              <CardContent className="space-y-5">
+                {/* Add new mapping form */}
+                <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Repo input */}
-                    <div className="flex-1 space-y-1.5">
+                    <div className="space-y-1.5">
                       <label className="text-xs font-medium text-foreground">Repository</label>
-                      <div className="relative">
+                      <div className="relative mt-2">
                         <GitBranch className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           placeholder="owner/repo"
@@ -315,18 +306,18 @@ export function IntegrationsPage() {
                     </div>
 
                     {/* Workspace picker */}
-                    <div className="flex-1 space-y-1.5">
+                    <div className="space-y-1.5">
                       <label className="text-xs font-medium text-foreground">Workspace</label>
-                      <div className="relative">
+                      <div className="relative mt-2">
                         <Building2 className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         <select
                           value={selectedInstallation}
                           onChange={(e) => {
                             setSelectedInstallation(e.target.value)
-                            setSelectedChannel("") // Reset channel when workspace changes
+                            setSelectedChannel("")
                           }}
                           className={cn(
-                            "h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-xs",
+                            "h-9 w-full appearance-none rounded-md border border-input bg-background pl-9 pr-10 text-xs",
                             "focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30",
                             !selectedInstallation && "text-muted-foreground",
                           )}
@@ -338,6 +329,7 @@ export function IntegrationsPage() {
                             </option>
                           ))}
                         </select>
+                        <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       </div>
                     </div>
                   </div>
@@ -346,20 +338,20 @@ export function IntegrationsPage() {
                     {/* Channel picker */}
                     <div className="flex-1 space-y-1.5">
                       <label className="text-xs font-medium text-foreground">Channel</label>
-                      <div className="relative">
+                      <div className="relative mt-2">
                         <Hash className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         <select
                           value={selectedChannel}
                           onChange={(e) => setSelectedChannel(e.target.value)}
                           disabled={!selectedInstallation || channelsQuery.isLoading}
                           className={cn(
-                            "h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-xs",
+                            "h-9 w-full appearance-none rounded-md border border-input bg-background pl-9 pr-10 text-xs",
                             "focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30",
                             "disabled:cursor-not-allowed disabled:opacity-50",
                             !selectedChannel && "text-muted-foreground",
                           )}
                         >
-                          <option value="">
+                          <option value="" >
                             {!selectedInstallation
                               ? "Pick a workspace first..."
                               : channelsQuery.isLoading
@@ -372,6 +364,7 @@ export function IntegrationsPage() {
                             </option>
                           ))}
                         </select>
+                        <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       </div>
                     </div>
 
@@ -384,21 +377,21 @@ export function IntegrationsPage() {
                         !selectedChannel ||
                         addMappingMutation.isPending
                       }
-                      className="h-9 gap-1.5"
+                      className="h-9 gap-2"
                     >
                       {addMappingMutation.isPending ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <Plus className="h-3 w-3" />
+                        <></>
                       )}
                       Add Mapping
                     </Button>
                   </div>
-                </div>
 
-                {addMappingMutation.isError && (
-                  <p className="text-xs text-destructive">{addMappingMutation.error.message}</p>
-                )}
+                  {addMappingMutation.isError && (
+                    <p className="text-xs text-destructive">{addMappingMutation.error.message}</p>
+                  )}
+                </div>
 
                 <Separator />
 
@@ -412,40 +405,29 @@ export function IntegrationsPage() {
                     {mappings.data?.mappings.map((m) => (
                       <div
                         key={m.id}
-                        className="rounded-lg border border-border bg-muted/30 px-4 py-2.5 space-y-1.5"
+                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">
-                              {m.repo_full_name}
-                            </code>
-                            <span className="text-xs text-muted-foreground">→</span>
-                            <span className="flex items-center gap-1 text-xs text-foreground">
-                              <Hash className="h-3 w-3 text-muted-foreground" />
-                              {m.channel_name}
-                            </span>
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                              {m.workspace_name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => deleteMappingMutation.mutate(m.id)}
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                        {/* Webhook status */}
-                        <div className="flex items-center gap-1.5">
-                          <span className="flex items-center gap-1 text-[10px] text-chart-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            PRs will auto-trigger workflows via GitHub App
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">
+                            {m.repo_full_name}
+                          </code>
+                          <span className="text-xs text-muted-foreground">→</span>
+                          <span className="flex items-center gap-1 text-xs text-foreground">
+                            <Hash className="h-3 w-3 text-muted-foreground" />
+                            {m.channel_name}
+                          </span>
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            {m.workspace_name}
                           </span>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => deleteMappingMutation.mutate(m.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     ))}
                   </div>
