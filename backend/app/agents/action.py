@@ -209,6 +209,38 @@ async def action_node(state: dict, ws_manager=None) -> dict:
     action_result = "Slack: " + ", ".join(results)
     confirmed = any("sent" in r for r in results)
 
+    # ── Send the SAME report via email to reviewers / assignees ──
+    email_recipients = state.get("email_recipients", [])
+    email_results = []
+    if email_recipients:
+        signal = state.get("signal_payload", {})
+        subject = f"[{_plain_text(signal.get('repo', 'Nexus'))}] {_plain_text(signal.get('title', 'Pipeline Report'))}"
+
+        # Build a clean HTML version of the same message_text
+        html_body = _build_email_html(message_text, signal)
+
+        for recipient in email_recipients:
+            email_addr = recipient.get("email", "")
+            if not email_addr:
+                continue
+            try:
+                resp = await send_email(
+                    to=email_addr,
+                    subject=subject,
+                    body=message_text,
+                    html_body=html_body,
+                )
+                status = resp.get("status", 0)
+                ok = status < 300
+                email_results.append(f"{email_addr}: {'sent' if ok else f'failed ({status})'}")
+                print(f"[EMAIL] Sent to {email_addr} — status {status}")
+            except Exception as e:
+                email_results.append(f"{email_addr}: error ({e})")
+                logger.error(f"Email exception for {email_addr}: {e}")
+
+        if email_results:
+            action_result += " | Email: " + ", ".join(email_results)
+
     traces.append(
         await emit_trace(
             ws_manager,
@@ -226,3 +258,50 @@ async def action_node(state: dict, ws_manager=None) -> dict:
         "slack_message": message_text,
         "trace_events": traces,
     }
+
+
+def _build_email_html(message_text: str, signal: dict) -> str:
+    """Convert the plain-text Slack report into a styled HTML email."""
+    # Split the message into lines and convert to HTML paragraphs
+    lines = message_text.split("\n")
+    html_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            html_lines.append("<br/>")
+        elif stripped.startswith("*") and stripped.endswith("*") and len(stripped) > 2:
+            # Bold headers like *Summary:*
+            html_lines.append(f'<h3 style="color: #1a1a2e; margin: 16px 0 4px;">{stripped.strip("*")}</h3>')
+        elif stripped.startswith("*") and ":" in stripped:
+            # Field like *Signal:* value
+            parts = stripped.split(":", 1)
+            label = parts[0].strip("* ")
+            value = parts[1].strip() if len(parts) > 1 else ""
+            html_lines.append(
+                f'<p style="margin: 4px 0;"><strong style="color: #555;">{label}:</strong> {value}</p>'
+            )
+        else:
+            html_lines.append(f'<p style="margin: 4px 0; color: #333;">{stripped}</p>')
+
+    pr_url = signal.get("url", "")
+    button_html = ""
+    if pr_url:
+        button_html = f'''
+        <a href="{pr_url}"
+           style="display: inline-block; margin-top: 16px; padding: 10px 22px;
+                  background: #0969da; color: #fff; text-decoration: none;
+                  border-radius: 6px; font-weight: 600; font-size: 14px;">
+            View on GitHub &rarr;
+        </a>'''
+
+    return f"""\
+<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: auto;
+            padding: 24px; background: #fafafa; border-radius: 8px;">
+  <div style="border-bottom: 2px solid #0969da; padding-bottom: 12px; margin-bottom: 16px;">
+    <h2 style="margin: 0; color: #0969da;">Nexus Pipeline Report</h2>
+  </div>
+  {''.join(html_lines)}
+  {button_html}
+  <p style="margin-top: 28px; font-size: 12px; color: #999;">Sent by Nexus</p>
+</div>"""
+

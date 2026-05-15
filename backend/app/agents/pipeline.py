@@ -32,7 +32,8 @@ def build_pipeline(ws_manager=None):
 
 async def run_pipeline(workflow_id: str, signal_type: str,
                        signal_payload: dict, ws_manager=None,
-                       user_slack_config: dict | None = None) -> dict:
+                       user_slack_config: dict | None = None,
+                       email_recipients: list[dict] | None = None) -> dict:
     """Execute the full pipeline and return final state."""
     pipeline = build_pipeline(ws_manager)
 
@@ -50,7 +51,9 @@ async def run_pipeline(workflow_id: str, signal_type: str,
         "trace_events": [],
         "error": None,
         "user_slack_config": user_slack_config or {},
+        "email_recipients": email_recipients or [],
     }
 
     result = await pipeline.ainvoke(initial_state)
     return result
+

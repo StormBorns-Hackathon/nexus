@@ -1,4 +1,5 @@
 import re
+import logging
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -12,6 +13,9 @@ from app.models.user_models import User
 from app.models import schemas
 from app.api.webhooks import run_workflow_background
 from app.utils.auth_utils import get_current_user
+from app.tools.email_tool import send_pr_review_email, send_issue_assigned_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -147,12 +151,16 @@ async def trigger_workflow(
 
     data = resp.json()
 
+    pr_title = data.get("title", "")
+    pr_author = data.get("user", {}).get("login", "unknown")
+    repo_full = f"{owner}/{repo}"
+
     payload = {
-        "title": data.get("title", ""),
+        "title": pr_title,
         "url": url,
         "body": data.get("body", "") or "",
-        "author": data.get("user", {}).get("login", "unknown"),
-        "repo": f"{owner}/{repo}",
+        "author": pr_author,
+        "repo": repo_full,
         "number": int(number),
         "state": data.get("state", ""),
         "labels": [l["name"] for l in data.get("labels", [])],
@@ -165,6 +173,63 @@ async def trigger_workflow(
         payload["merged"] = data.get("merged", False)
 
     signal_type = "github_pr" if is_pr else "github_issue"
+
+    # ── Collect email recipients for unified notification ──────
+    email_recipients: list[dict] = []
+
+    if is_pr:
+        # Collect ALL reviewers: pending + those who already submitted reviews
+        reviewer_logins: set[str] = set()
+        reviewer_map: dict[str, dict] = {}
+
+        pending_reviewers = data.get("requested_reviewers", [])
+        print(f"[EMAIL DEBUG] requested_reviewers from PR data: {[r.get('login') for r in pending_reviewers]}")
+        for r in pending_reviewers:
+            login = r.get("login", "")
+            if login:
+                reviewer_logins.add(login)
+                reviewer_map[login] = r
+
+        # Also check reviews endpoint for reviewers who already reviewed
+        reviews_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{number}/reviews"
+        async with httpx.AsyncClient() as client:
+            reviews_resp = await client.get(reviews_url, headers=headers, timeout=10)
+        print(f"[EMAIL DEBUG] Reviews API status: {reviews_resp.status_code}")
+        if reviews_resp.status_code == 200:
+            for review in reviews_resp.json():
+                login = review.get("user", {}).get("login", "")
+                if login and login != pr_author:
+                    reviewer_logins.add(login)
+                    if login not in reviewer_map:
+                        reviewer_map[login] = review.get("user", {})
+
+        print(f"[EMAIL DEBUG] PR #{number} — found {len(reviewer_logins)} reviewer(s): {', '.join(reviewer_logins) or '(none)'}")
+
+        for login in reviewer_logins:
+            gh_user = reviewer_map.get(login, {})
+            email = _get_email_from_gh_user(gh_user)
+            if not email:
+                email = await _resolve_email(login, str(gh_user.get("id", "")), user.github_access_token)
+            if email:
+                email_recipients.append({"email": email, "role": "reviewer", "login": login})
+                print(f"[EMAIL DEBUG] Resolved reviewer @{login} → {email}")
+            else:
+                print(f"[EMAIL DEBUG] Could not resolve email for @{login}")
+    else:
+        assignees = data.get("assignees", [])
+        for assignee in assignees:
+            login = assignee.get("login", "")
+            email = _get_email_from_gh_user(assignee)
+            if not email:
+                email = await _resolve_email(login, str(assignee.get("id", "")), user.github_access_token)
+            if email:
+                email_recipients.append({"email": email, "role": "assignee", "login": login})
+
+    print(f"[EMAIL DEBUG] Total email recipients: {len(email_recipients)} → {[r['email'] for r in email_recipients]}")
+
+    # ── Create workflow ───────────────────────────────────────
+    # Store recipients in payload so the pipeline can use them
+    payload["_email_recipients"] = email_recipients
 
     workflow = Workflow(
         user_id=user.id,
@@ -180,3 +245,103 @@ async def trigger_workflow(
     background_tasks.add_task(run_workflow_background, workflow.id)
 
     return {"workflow_id": workflow.id, "status": workflow.status}
+
+
+# ──────────────── Helpers for email resolution ────────────────
+
+
+def _get_email_from_gh_user(gh_user: dict) -> str | None:
+    """Extract email directly from the GitHub API user object (if present)."""
+    return gh_user.get("email") or None
+
+
+async def _resolve_email(
+    username: str, github_id: str, auth_token: str | None = None
+) -> str | None:
+    """Try DB lookup, then authenticated GitHub API, then public profile."""
+    from app.models.database import AsyncSessionLocal
+
+    # 1. DB lookup
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User.email).where(User.github_id == github_id)
+        )
+        email = result.scalar_one_or_none()
+        if email:
+            return email
+
+    # 2. Authenticated GitHub user emails endpoint (works for org members)
+    if auth_token:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.github.com/users/{username}",
+                headers={
+                    "Authorization": f"Bearer {auth_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                email = resp.json().get("email")
+                if email:
+                    return email
+
+    # 3. Public profile fallback
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"https://api.github.com/users/{username}",
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("email")
+
+    return None
+
+
+async def _send_pr_email_with_lookup(
+    username: str,
+    github_id: str,
+    pr_title: str,
+    pr_url: str,
+    pr_author: str,
+    repo_name: str,
+    auth_token: str | None = None,
+):
+    """Resolve a reviewer's email and send the PR review notification."""
+    email = await _resolve_email(username, github_id, auth_token)
+    if not email:
+        logger.warning("Could not resolve email for reviewer @%s — skipping", username)
+        return
+    result = await send_pr_review_email(
+        reviewer_email=email,
+        pr_title=pr_title,
+        pr_url=pr_url,
+        pr_author=pr_author,
+        repo_name=repo_name,
+    )
+    logger.info("PR review email sent to %s (status %s)", email, result.get("status"))
+
+
+async def _send_issue_email_with_lookup(
+    username: str,
+    github_id: str,
+    issue_title: str,
+    issue_url: str,
+    issue_author: str,
+    repo_name: str,
+    auth_token: str | None = None,
+):
+    """Resolve an assignee's email and send the issue assignment notification."""
+    email = await _resolve_email(username, github_id, auth_token)
+    if not email:
+        logger.warning("Could not resolve email for assignee @%s — skipping", username)
+        return
+    result = await send_issue_assigned_email(
+        assignee_email=email,
+        issue_title=issue_title,
+        issue_url=issue_url,
+        issue_author=issue_author,
+        repo_name=repo_name,
+    )
+    logger.info("Issue assignment email sent to %s (status %s)", email, result.get("status"))

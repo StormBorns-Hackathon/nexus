@@ -22,3 +22,5 @@ class AgentState(TypedDict):
     trace_events: Annotated[list[TraceEvent], lambda a, b: a + b]
     error: str | None
     user_slack_config: dict
+    email_recipients: list[dict]  # [{"email": "...", "role": "reviewer"|"assignee", "login": "..."}]
+

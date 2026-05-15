@@ -77,6 +77,9 @@ async def run_workflow(workflow_id: UUID) -> None:
 
                 user_slack_config["channels"] = channels
 
+        # Extract email recipients stored by the trigger endpoint
+        email_recipients = (wf.signal_payload or {}).get("_email_recipients", [])
+
         try:
             result = await run_pipeline(
                 str(workflow_id),
@@ -84,6 +87,7 @@ async def run_workflow(workflow_id: UUID) -> None:
                 wf.signal_payload,
                 ws_manager,
                 user_slack_config=user_slack_config,
+                email_recipients=email_recipients,
             )
 
             # Persist trace events as WorkflowStep rows
