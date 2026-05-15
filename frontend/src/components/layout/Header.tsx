@@ -74,7 +74,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               <Home className="h-4 w-4" />
             </Button>
           </Link>
-          <span className="text-xs text-muted-foreground">/ app</span>
+          {/* <span className="text-xs text-muted-foreground">/ app</span> */}
         </div>
 
         <div className="flex items-center gap-2">
