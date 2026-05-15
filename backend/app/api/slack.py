@@ -436,14 +436,6 @@ BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "")
 
 async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSession):
     """Register a GitHub webhook for the repo if one doesn't already exist for this user."""
-    if not user.github_access_token:
-        logger.warning(f"Cannot register webhook for {repo_full_name}: user has no GitHub token")
-        return
-
-    if not BACKEND_PUBLIC_URL:
-        logger.warning("BACKEND_PUBLIC_URL not set — skipping webhook registration")
-        return
-
     # Check if we already monitor this repo
     result = await db.execute(
         select(MonitoredRepo).where(
@@ -454,6 +446,40 @@ async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSessi
     existing = result.scalar_one_or_none()
     if existing and existing.github_webhook_id:
         return  # Already registered
+
+    # If another Nexus user already registered this repo webhook, reuse its
+    # secret. GitHub sends one webhook request per repo hook, so all local
+    # monitors for that same hook must verify against the same secret.
+    shared_result = await db.execute(
+        select(MonitoredRepo).where(
+            MonitoredRepo.repo_full_name == repo_full_name,
+            MonitoredRepo.github_webhook_id.is_not(None),
+        )
+    )
+    shared_monitor = shared_result.scalars().first()
+    if shared_monitor:
+        if existing:
+            existing.github_webhook_id = shared_monitor.github_webhook_id
+            existing.webhook_secret = shared_monitor.webhook_secret
+        else:
+            db.add(
+                MonitoredRepo(
+                    user_id=user.id,
+                    repo_full_name=repo_full_name,
+                    github_webhook_id=shared_monitor.github_webhook_id,
+                    webhook_secret=shared_monitor.webhook_secret,
+                )
+            )
+        await db.commit()
+        return
+
+    if not user.github_access_token:
+        logger.warning(f"Cannot register webhook for {repo_full_name}: user has no GitHub token")
+        return
+
+    if not BACKEND_PUBLIC_URL:
+        logger.warning("BACKEND_PUBLIC_URL not set — skipping webhook registration")
+        return
 
     webhook_secret = secrets.token_hex(32)
 
@@ -485,12 +511,15 @@ async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSessi
             hook_data = resp.json()
             github_webhook_id = hook_data.get("id")
         elif resp.status_code == 422:
-            # Hook may already exist (different user registered it)
-            github_webhook_id = None
-            logger.info(f"Webhook may already exist for {repo_full_name}: {resp.text}")
+            # Hook may already exist in GitHub. Do not store a brand-new local
+            # secret because GitHub will not sign existing hook deliveries with it.
+            logger.error(
+                f"Webhook already exists or cannot be created for {repo_full_name}: {resp.text}"
+            )
+            return
         else:
             logger.error(f"Failed to register webhook for {repo_full_name}: {resp.status_code} {resp.text}")
-            github_webhook_id = None
+            return
 
         if existing:
             existing.webhook_secret = webhook_secret
