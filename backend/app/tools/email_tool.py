@@ -15,7 +15,7 @@ async def send_email(to: str, subject: str, body: str) -> dict:
             headers={"Authorization": f"Bearer {SENDGRID_API_KEY}"},
             json={
                 "personalizations": [{"to": [{"email": to}]}],
-                "from": {"email": "nexus@yourdomain.com"},
+                "from": {"email": "agarwalmehul423@gmail.com"},
                 "subject": subject,
                 "content": [{"type": "text/plain", "value": body}],
             },
