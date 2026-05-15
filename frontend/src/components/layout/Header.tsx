@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Home, User, LogOut } from "lucide-react"
+import { Home, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function Header() {
