@@ -336,22 +336,6 @@ export function IntegrationsPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
-                            {!m.webhook_registered && (
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                onClick={() => repairMutation.mutate(m.id)}
-                                disabled={repairMutation.isPending}
-                                className="text-chart-3 hover:text-chart-3 gap-1 text-[11px]"
-                              >
-                                {repairMutation.isPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-3 w-3" />
-                                )}
-                                Register Webhook
-                              </Button>
-                            )}
                             <Button
                               variant="ghost"
                               size="icon-sm"
@@ -364,24 +348,11 @@ export function IntegrationsPage() {
                         </div>
                         {/* Webhook status */}
                         <div className="flex items-center gap-1.5">
-                          {m.webhook_registered ? (
-                            <span className="flex items-center gap-1 text-[10px] text-chart-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Webhook active — PRs will auto-trigger workflows
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-[10px] text-amber-500">
-                              <AlertTriangle className="h-3 w-3" />
-                              Webhook not registered — click &quot;Register Webhook&quot; to enable auto-trigger
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1 text-[10px] text-chart-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            PRs will auto-trigger workflows via GitHub App
+                          </span>
                         </div>
-                        {repairMutation.isError && repairMutation.variables === m.id && (
-                          <p className="text-[10px] text-destructive">{repairMutation.error.message}</p>
-                        )}
-                        {repairMutation.isSuccess && repairMutation.variables === m.id && (
-                          <p className="text-[10px] text-chart-1">✓ Webhook registered successfully!</p>
-                        )}
                       </div>
                     ))}
                   </div>
