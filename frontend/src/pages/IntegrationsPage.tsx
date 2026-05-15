@@ -145,36 +145,35 @@ export function IntegrationsPage() {
               </div>
             </CardHeader>
 
-            <CardContent>
-              {isConnected ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Workspace</p>
-                      <p className="text-sm font-medium text-foreground">
-                        {slackStatus.data?.team_name}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => disconnectMutation.mutate()}
-                      disabled={disconnectMutation.isPending}
-                    >
-                      {disconnectMutation.isPending ? (
-                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                      ) : null}
-                      Disconnect
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button onClick={handleConnectSlack} className="gap-2">
-                  {/* <Plug className="h-3.5 w-3.5" /> */}
-                  Connect Slack
-                </Button>
-              )}
+            <CardContent className="space-y-3">
+              {/* Connected workspaces */}
+              {installations.map((inst: SlackInstallation) => (
+                <WorkspaceRow
+                  key={inst.id}
+                  installation={inst}
+                  onDisconnect={() => disconnectMutation.mutate(inst.id)}
+                  onSetDefault={(channelId, channelName) =>
+                    setDefaultMutation.mutate({
+                      installationId: inst.id,
+                      channelId,
+                      channelName,
+                    })
+                  }
+                  isDisconnecting={disconnectMutation.isPending}
+                  isSettingDefault={setDefaultMutation.isPending}
+                />
+              ))}
+
+              {/* Connect another workspace button */}
+              <Button
+                onClick={handleConnectSlack}
+                variant={isConnected ? "outline" : "default"}
+                className="gap-2"
+                size="sm"
+              >
+                {/* <Plus className="h-3.5 w-3.5" /> */}
+                {isConnected ? "Connect Another Workspace" : "Connect Slack"}
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
