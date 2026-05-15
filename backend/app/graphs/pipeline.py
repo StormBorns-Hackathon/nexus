@@ -21,13 +21,6 @@ except ImportError:
 @_omium_trace("run_workflow", span_type="workflow")
 async def run_workflow(workflow_id: UUID) -> None:
     """Load workflow from DB, run the agent pipeline, persist results."""
-    try:
-        import omium
-        if hasattr(omium, "set_execution_id"):
-            omium.set_execution_id(str(workflow_id))
-    except Exception:
-        pass
-
     async with AsyncSessionLocal() as db:
         wf = await db.get(Workflow, workflow_id)
         if not wf:
@@ -135,3 +128,12 @@ async def run_workflow(workflow_id: UUID) -> None:
             "status": wf.status.value,
             "result_summary": wf.result_summary,
         })
+        
+        # Ensure the workflow span is flushed to Omium dashboard
+        try:
+            from omium.integrations.tracer import get_current_tracer
+            tracer = get_current_tracer()
+            if tracer:
+                tracer.flush()
+        except Exception as e:
+            pass
