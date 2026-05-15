@@ -4,15 +4,41 @@ from app.agents.planner import planner_node
 from app.agents.researcher import researcher_node
 from app.agents.action import action_node
 
+# ── Omium tracing (graceful no-op if SDK unavailable) ──
+try:
+    import omium
+    _omium_available = True
+except ImportError:
+    _omium_available = False
+
+
+def _trace(name: str, **kwargs):
+    """Return the omium.trace decorator if available, else identity."""
+    if _omium_available:
+        return omium.trace(name, **kwargs)
+    return lambda fn: fn
+
+
+def _checkpoint(name: str):
+    """Return the omium.checkpoint decorator if available, else identity."""
+    if _omium_available:
+        return omium.checkpoint(name)
+    return lambda fn: fn
+
+
 def build_pipeline(ws_manager=None):
     """Build and compile the Nexus agent pipeline."""
 
+    @_trace("planner_agent", span_type="agent")
     async def planner(state):
         return await planner_node(state, ws_manager)
 
+    @_trace("researcher_agent", span_type="agent")
     async def researcher(state):
         return await researcher_node(state, ws_manager)
 
+    @_checkpoint("after_research")
+    @_trace("action_agent", span_type="agent")
     async def action(state):
         return await action_node(state, ws_manager)
 
