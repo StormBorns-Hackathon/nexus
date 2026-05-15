@@ -171,3 +171,11 @@ async def run_workflow(workflow_id: UUID) -> None:
     # the entire workflow completes, so they appear on the Omium dashboard.
     flush_omium_traces()
     logger.debug("Omium traces flushed for workflow %s", workflow_id)
+
+    # ── Flush Omium traces to the backend ──
+    # The SDK's auto-instrumented ainvoke() creates spans but its internal
+    # aflush() fires too early (before spans exit the context manager).
+    # This explicit flush sends the accumulated spans immediately after
+    # the entire workflow completes, so they appear on the Omium dashboard.
+    flush_omium_traces()
+    logger.debug("Omium traces flushed for workflow %s", workflow_id)
