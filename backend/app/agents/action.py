@@ -51,13 +51,13 @@ async def action_node(state: dict, ws_manager=None) -> dict:
             ],
             response_format={"type": "json_object"},
         )
+
+        content = response.choices[0].message.content
+        if content is None:
+            return {"error": "LLM returned empty response in action", "trace_events": traces}
+        result = json.loads(content)
     except Exception as e:
         return {"error": str(e), "trace_events": traces}
-
-    content = response.choices[0].message.content
-    if content is None:
-        raise ValueError("LLM returned empty response for researcher synthesis")
-    result = json.loads(content)
 
     # Execute Slack action
     traces.append(
