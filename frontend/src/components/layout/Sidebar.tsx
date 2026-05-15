@@ -1,27 +1,37 @@
 import { Link, useLocation } from "react-router-dom"
-import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   LayoutDashboard,
   Radio,
   Zap,
-  ChevronLeft,
-  ChevronRight,
-  User,
   Plug,
 } from "lucide-react"
-import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Trigger", href: "/trigger", icon: Radio },
   { label: "Integrations", href: "/integrations", icon: Plug },
-  { label: "Profile", href: "/profile", icon: User },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  collapsed: boolean
+  /** Called when a nav link is clicked — used to close mobile sidebar */
+  onNavClick?: () => void
+}
+
+export function Sidebar({ collapsed, onNavClick }: SidebarProps) {
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
+  const { user } = useAuth()
+
+  const isProfileActive = location.pathname === "/profile"
+  const initials = (user?.name ?? "U")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
 
   return (
     <aside
@@ -31,15 +41,22 @@ export function Sidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2.5 border-b border-border px-4">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary">
-          <Zap className="h-3.5 w-3.5 text-primary-foreground" />
-        </div>
-        {!collapsed && (
-          <span className="font-heading text-base font-semibold tracking-tight">
-            Nexus
-          </span>
+      <div
+        className={cn(
+          "flex h-14 items-center border-b border-border",
+          collapsed ? "justify-center px-2" : "px-4"
         )}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary">
+            <Zap className="h-3.5 w-3.5 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <span className="font-heading text-base font-semibold tracking-tight">
+              Nexus
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Nav links */}
@@ -47,10 +64,11 @@ export function Sidebar() {
         {navItems.map((item) => {
           const isActive = location.pathname.startsWith(item.href)
           return (
-            <Link key={item.href} to={item.href}>
+            <Link key={item.href} to={item.href} onClick={onNavClick}>
               <div
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                  collapsed && "justify-center px-0",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
@@ -64,20 +82,31 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse toggle */}
+      {/* Profile at bottom */}
       <div className="border-t border-border p-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full text-muted-foreground"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
+        <Link to="/profile" onClick={onNavClick}>
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+              collapsed && "justify-center px-0",
+              isProfileActive
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            )}
+          >
+            <Avatar className="h-5 w-5 shrink-0">
+              {user?.avatar_url ? (
+                <AvatarImage src={user.avatar_url} alt={user?.name ?? ""} />
+              ) : null}
+              <AvatarFallback className="bg-primary/10 text-[8px] font-semibold text-primary">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <span className="truncate">{user?.name ?? "Profile"}</span>
+            )}
+          </div>
+        </Link>
       </div>
     </aside>
   )
