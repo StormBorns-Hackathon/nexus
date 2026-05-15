@@ -19,7 +19,7 @@ function authHeaders(): HeadersInit {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(apiUrl(`${API_BASE}${path}`), {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       ...authHeaders(),
