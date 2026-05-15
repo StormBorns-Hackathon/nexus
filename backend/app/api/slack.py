@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from uuid import UUID
 import httpx
 import os
+import re
 import secrets
 import logging
 
@@ -18,6 +19,23 @@ logger = logging.getLogger(__name__)
 
 SLACK_CLIENT_ID = os.getenv("SLACK_CLIENT_ID", "")
 SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET", "")
+
+GITHUB_REPO_PATTERN = re.compile(
+    r"^(?:https?://github\.com/)?([^/\s]+)/([^/\s#?]+?)(?:\.git)?/?(?:[?#].*)?$",
+    re.IGNORECASE,
+)
+
+
+def _normalize_repo_full_name(value: str) -> str:
+    repo = value.strip()
+    match = GITHUB_REPO_PATTERN.match(repo)
+    if not match:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid GitHub repo. Use owner/repo or https://github.com/owner/repo",
+        )
+    owner, name = match.groups()
+    return f"{owner}/{name}".lower()
 
 
 # ── Schemas ──
@@ -38,6 +56,12 @@ class SetDefaultChannelRequest(BaseModel):
     installation_id: str
     channel_id: str
     channel_name: str
+
+
+class WebhookRegistrationResult(BaseModel):
+    ok: bool
+    message: str
+    github_webhook_id: int | None = None
 
 
 # ── OAuth endpoints ──
@@ -343,6 +367,18 @@ async def list_mappings(
         for inst in inst_result.scalars().all():
             installations_map[inst.id] = inst.team_name
 
+    repo_names = {m.repo_full_name for m in mappings}
+    monitors_map = {}
+    if repo_names:
+        monitors_result = await db.execute(
+            select(MonitoredRepo).where(
+                MonitoredRepo.user_id == user.id,
+                MonitoredRepo.repo_full_name.in_(repo_names),
+            )
+        )
+        for monitor in monitors_result.scalars().all():
+            monitors_map[monitor.repo_full_name] = monitor
+
     return {
         "mappings": [
             {
@@ -353,6 +389,10 @@ async def list_mappings(
                 "channel_id": m.channel_id,
                 "channel_name": m.channel_name,
                 "created_at": m.created_at,
+                "webhook_registered": bool(
+                    monitors_map.get(m.repo_full_name)
+                    and monitors_map[m.repo_full_name].github_webhook_id
+                ),
             }
             for m in mappings
         ]
@@ -376,7 +416,7 @@ async def add_mapping(
     if not installation:
         raise HTTPException(status_code=400, detail="Installation not found")
 
-    repo_name = body.repo_full_name.strip().lower()
+    repo_name = _normalize_repo_full_name(body.repo_full_name)
 
     mapping = RepoChannelMapping(
         user_id=user.id,
@@ -396,8 +436,8 @@ async def add_mapping(
     # Auto-join the channel so the bot can post
     await _auto_join_channel(installation.bot_token, body.channel_id)
 
-    # Auto-register GitHub webhook for this repo if not already done
-    await _ensure_github_webhook(user, repo_name, db)
+    # Auto-register GitHub webhook for this repo if not already done.
+    webhook_result = await _ensure_github_webhook(user, repo_name, db)
 
     return {
         "id": str(mapping.id),
@@ -405,6 +445,41 @@ async def add_mapping(
         "repo_full_name": mapping.repo_full_name,
         "channel_id": mapping.channel_id,
         "channel_name": mapping.channel_name,
+        "webhook_registered": webhook_result.ok,
+        "webhook_message": webhook_result.message,
+    }
+
+
+@router.post("/mappings/{mapping_id}/repair-webhook")
+async def repair_mapping_webhook(
+    mapping_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(RepoChannelMapping).where(
+            RepoChannelMapping.id == mapping_id,
+            RepoChannelMapping.user_id == user.id,
+        )
+    )
+    mapping = result.scalar_one_or_none()
+    if not mapping:
+        raise HTTPException(status_code=404, detail="Mapping not found")
+
+    repo_name = _normalize_repo_full_name(mapping.repo_full_name)
+    if mapping.repo_full_name != repo_name:
+        mapping.repo_full_name = repo_name
+        await db.commit()
+
+    webhook_result = await _ensure_github_webhook(user, repo_name, db)
+    if not webhook_result.ok:
+        raise HTTPException(status_code=400, detail=webhook_result.message)
+
+    return {
+        "ok": True,
+        "repo_full_name": mapping.repo_full_name,
+        "github_webhook_id": webhook_result.github_webhook_id,
+        "message": webhook_result.message,
     }
 
 
@@ -434,8 +509,14 @@ async def delete_mapping(
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "")
 
 
-async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSession):
+async def _ensure_github_webhook(
+    user: User,
+    repo_full_name: str,
+    db: AsyncSession,
+) -> WebhookRegistrationResult:
     """Register a GitHub webhook for the repo if one doesn't already exist for this user."""
+    repo_full_name = _normalize_repo_full_name(repo_full_name)
+
     # Check if we already monitor this repo
     result = await db.execute(
         select(MonitoredRepo).where(
@@ -445,7 +526,11 @@ async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSessi
     )
     existing = result.scalar_one_or_none()
     if existing and existing.github_webhook_id:
-        return  # Already registered
+        return WebhookRegistrationResult(
+            ok=True,
+            message="GitHub webhook already registered",
+            github_webhook_id=existing.github_webhook_id,
+        )
 
     # If another Nexus user already registered this repo webhook, reuse its
     # secret. GitHub sends one webhook request per repo hook, so all local
@@ -471,15 +556,24 @@ async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSessi
                 )
             )
         await db.commit()
-        return
+        return WebhookRegistrationResult(
+            ok=True,
+            message="Reused existing GitHub webhook registration",
+            github_webhook_id=shared_monitor.github_webhook_id,
+        )
 
     if not user.github_access_token:
-        logger.warning(f"Cannot register webhook for {repo_full_name}: user has no GitHub token")
-        return
+        message = (
+            "Cannot register GitHub webhook because this Nexus account is not "
+            "connected to GitHub. Sign in with GitHub, then repair this mapping."
+        )
+        logger.warning(f"{message} repo={repo_full_name}")
+        return WebhookRegistrationResult(ok=False, message=message)
 
     if not BACKEND_PUBLIC_URL:
-        logger.warning("BACKEND_PUBLIC_URL not set — skipping webhook registration")
-        return
+        message = "BACKEND_PUBLIC_URL is not set, so GitHub webhook registration was skipped"
+        logger.warning(message)
+        return WebhookRegistrationResult(ok=False, message=message)
 
     webhook_secret = secrets.token_hex(32)
 
@@ -513,13 +607,28 @@ async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSessi
         elif resp.status_code == 422:
             # Hook may already exist in GitHub. Do not store a brand-new local
             # secret because GitHub will not sign existing hook deliveries with it.
-            logger.error(
-                f"Webhook already exists or cannot be created for {repo_full_name}: {resp.text}"
+            message = (
+                "GitHub rejected webhook creation. The repo may already have a "
+                "Nexus webhook, or your GitHub token may not have repo admin access."
             )
-            return
+            logger.error(f"{message} repo={repo_full_name}: {resp.text}")
+            return WebhookRegistrationResult(ok=False, message=message)
         else:
-            logger.error(f"Failed to register webhook for {repo_full_name}: {resp.status_code} {resp.text}")
-            return
+            if resp.status_code == 404:
+                message = (
+                    "GitHub could not find this repo for the signed-in GitHub user. "
+                    "Make sure you signed into Nexus with a GitHub account that has "
+                    "admin access to the repo."
+                )
+            elif resp.status_code == 403:
+                message = (
+                    "GitHub denied webhook creation. The signed-in GitHub user needs "
+                    "admin access to the repo."
+                )
+            else:
+                message = f"Failed to register GitHub webhook: HTTP {resp.status_code}"
+            logger.error(f"{message} for {repo_full_name}: {resp.text}")
+            return WebhookRegistrationResult(ok=False, message=message)
 
         if existing:
             existing.webhook_secret = webhook_secret
@@ -534,6 +643,15 @@ async def _ensure_github_webhook(user: User, repo_full_name: str, db: AsyncSessi
             db.add(monitored)
 
         await db.commit()
+        return WebhookRegistrationResult(
+            ok=True,
+            message="GitHub webhook registered",
+            github_webhook_id=github_webhook_id,
+        )
 
     except Exception as e:
         logger.error(f"Error registering webhook for {repo_full_name}: {e}")
+        return WebhookRegistrationResult(
+            ok=False,
+            message=f"Error registering GitHub webhook: {e}",
+        )
