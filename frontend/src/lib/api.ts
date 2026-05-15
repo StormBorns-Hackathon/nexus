@@ -1,8 +1,7 @@
 import type { Workflow, WorkflowStep } from "@/types"
 
-const API_BASE = "/api"
 const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ?? ""
-
+const API_BASE = `${backendUrl}/api`
 export function apiUrl(path: string) {
   return `${backendUrl}${path.startsWith("/") ? path : `/${path}`}`
 }
@@ -122,11 +121,13 @@ export interface SlackChannel {
 export interface RepoChannelMapping {
   id: string
   installation_id: string | null
-  workspace_name: string
+  workspace_name?: string
   repo_full_name: string
   channel_id: string
   channel_name: string
-  created_at: string
+  created_at?: string
+  webhook_registered?: boolean
+  webhook_message?: string
 }
 
 export async function getSlackAuthUrl(): Promise<{ url: string }> {
@@ -183,6 +184,12 @@ export async function addRepoMapping(
 
 export async function deleteRepoMapping(mappingId: string): Promise<{ ok: boolean }> {
   return apiFetch(`/slack/mappings/${mappingId}`, { method: "DELETE" })
+}
+
+export async function repairRepoWebhook(
+  mappingId: string,
+): Promise<{ ok: boolean; repo_full_name: string; github_webhook_id: number; message: string }> {
+  return apiFetch(`/slack/mappings/${mappingId}/repair-webhook`, { method: "POST" })
 }
 
 export async function setDefaultChannel(

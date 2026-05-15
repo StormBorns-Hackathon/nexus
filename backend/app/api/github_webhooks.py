@@ -10,12 +10,13 @@ import hashlib
 import hmac
 import logging
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Request, HTTPException
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import AsyncSessionLocal
 from app.models.slack_models import MonitoredRepo, RepoChannelMapping, SlackInstallation
+from app.models.workflow_models import Workflow, WorkflowStatus
+from app.api.webhooks import run_workflow_background
 from app.tools.slack import send_slack_message
 
 router = APIRouter()
@@ -91,8 +92,30 @@ def _format_pr_notification(event: dict) -> str:
     return "\n".join(lines)
 
 
+def _build_workflow_payload(event: dict) -> dict:
+    """Convert a GitHub pull_request webhook payload into our workflow signal."""
+    pr = event.get("pull_request", {})
+    repo = event.get("repository", {})
+
+    return {
+        "title": pr.get("title", ""),
+        "url": pr.get("html_url", ""),
+        "body": pr.get("body") or "",
+        "author": pr.get("user", {}).get("login", "unknown"),
+        "repo": repo.get("full_name", "").lower(),
+        "number": pr.get("number") or event.get("number"),
+        "state": pr.get("state", ""),
+        "labels": [label.get("name", "") for label in pr.get("labels", [])],
+        "changed_files": pr.get("changed_files", 0),
+        "additions": pr.get("additions", 0),
+        "deletions": pr.get("deletions", 0),
+        "merged": pr.get("merged", False),
+        "action": event.get("action", ""),
+    }
+
+
 @router.post("/webhook")
-async def receive_github_webhook(request: Request):
+async def receive_github_webhook(request: Request, background_tasks: BackgroundTasks):
     """
     Receive a GitHub webhook event. This is called by GitHub, not by our frontend.
     It's unauthenticated but we verify the HMAC signature.
@@ -160,6 +183,26 @@ async def receive_github_webhook(request: Request):
             logger.info(f"No channel mappings for {repo_full_name}")
             return {"ok": True, "message": "no mappings"}
 
+        # Create one workflow per mapped Nexus user, then let the normal pipeline
+        # produce the trace and Slack report for that user's mapped channels.
+        mapped_user_ids = {m.user_id for m in mappings}
+        workflow_payload = _build_workflow_payload(event)
+        workflows = []
+        for user_id in mapped_user_ids:
+            workflow = Workflow(
+                user_id=user_id,
+                signal_type="github_pr",
+                signal_payload=workflow_payload,
+                status=WorkflowStatus.pending,
+            )
+            db.add(workflow)
+            workflows.append(workflow)
+
+        await db.commit()
+        for workflow in workflows:
+            await db.refresh(workflow)
+            background_tasks.add_task(run_workflow_background, workflow.id)
+
         # Group mappings by installation_id to batch token lookups
         installation_ids = {m.installation_id for m in mappings if m.installation_id}
         installations_map = {}
@@ -205,6 +248,7 @@ async def receive_github_webhook(request: Request):
 
         return {
             "ok": True,
+            "workflows": [str(workflow.id) for workflow in workflows],
             "sent": sent_count,
             "errors": errors if errors else None,
         }

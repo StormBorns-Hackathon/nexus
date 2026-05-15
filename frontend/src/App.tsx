@@ -1,16 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { AuthProvider } from "@/lib/auth-context"
 import { Home } from "@/pages/Home"
 import { SignIn } from "@/pages/SignIn"
 import { SignUp } from "@/pages/SignUp"
 import { GithubCallback } from "@/pages/GithubCallback"
+import { SlackCallback } from "@/pages/SlackCallback"
 import { Dashboard } from "@/pages/Dashboard"
 import { WorkflowDetail } from "@/pages/WorkflowDetail"
 import { TriggerPage } from "@/pages/TriggerPage"
 import { ProfilePage } from "@/pages/ProfilePage"
 import { IntegrationsPage } from "@/pages/IntegrationsPage"
-import { SlackCallback } from "@/pages/SlackCallback"
 import { Layout } from "@/components/layout/Layout"
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute"
 
@@ -28,13 +29,14 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            {/* Public pages — no sidebar/header */}
-            <Route path="/" element={<Home />} />
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/auth/github/callback" element={<GithubCallback />} />
-            <Route path="/integrations/slack/callback" element={<SlackCallback />} />
+          <TooltipProvider>
+            <Routes>
+              {/* Public pages — no sidebar/header */}
+              <Route path="/" element={<Home />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/auth/github/callback" element={<GithubCallback />} />
+              <Route path="/integrations/slack/callback" element={<SlackCallback />} />
 
             {/* App pages — protected + layout */}
             <Route element={<ProtectedRoute />}>
@@ -47,9 +49,10 @@ export function App() {
               </Route>
             </Route>
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

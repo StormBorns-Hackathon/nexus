@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { Search, Filter, Loader2, Radio, Send } from "lucide-react"
+import { Search, Filter, Loader2, Radio } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WorkflowCard } from "@/components/workflow/WorkflowCard"
 import { useWorkflows } from "@/lib/queries"
@@ -143,8 +143,8 @@ export function Dashboard() {
               Trigger your first webhook to start an autonomous agent pipeline run.
             </p>
             <Link to="/trigger">
-              <Button className="mt-5 gap-2" size="sm">
-                <Send className="h-3.5 w-3.5" />
+              <Button className="mt-5 gap-2" >
+                {/* <Send className="h-3.5 w-3.5" /> */}
                 Create your first workflow
               </Button>
             </Link>
