@@ -1,14 +1,18 @@
 """
 GitHub Webhook receiver — receives PR events and sends Slack notifications.
 
-This endpoint is UNAUTHENTICATED (called by GitHub), but verifies the
-X-Hub-Signature-256 header using the per-repo webhook secret stored in
-the monitored_repos table.
+Supports two modes:
+1. GitHub App mode (preferred): Uses GITHUB_APP_WEBHOOK_SECRET env var to
+   verify all incoming webhooks. The GitHub App is installed on the org/repo
+   and sends PR events automatically — no per-user admin access needed.
+2. Legacy per-repo mode: Falls back to per-repo secrets stored in
+   the monitored_repos table if GITHUB_APP_WEBHOOK_SECRET is not set.
 """
 
 import hashlib
 import hmac
 import logging
+import os
 
 from fastapi import APIRouter, BackgroundTasks, Request, HTTPException
 from sqlalchemy import select
@@ -21,6 +25,9 @@ from app.tools.slack import send_slack_message
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# GitHub App webhook secret — set this to use App mode (recommended)
+GITHUB_APP_WEBHOOK_SECRET = os.getenv("GITHUB_APP_WEBHOOK_SECRET", "")
 
 
 def _verify_signature(payload_body: bytes, secret: str, signature_header: str | None) -> bool:
@@ -117,8 +124,8 @@ def _build_workflow_payload(event: dict) -> dict:
 @router.post("/webhook")
 async def receive_github_webhook(request: Request, background_tasks: BackgroundTasks):
     """
-    Receive a GitHub webhook event. This is called by GitHub, not by our frontend.
-    It's unauthenticated but we verify the HMAC signature.
+    Receive a GitHub webhook event. Called by GitHub (unauthenticated).
+    Verifies HMAC signature, then creates workflows and sends Slack notifications.
     """
     payload_body = await request.body()
     signature = request.headers.get("X-Hub-Signature-256")
@@ -146,31 +153,35 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
     if action not in notify_actions:
         return {"ok": True, "message": f"ignored action: {action}"}
 
-    async with AsyncSessionLocal() as db:
-        # Find all MonitoredRepo entries for this repo to verify signature
-        result = await db.execute(
-            select(MonitoredRepo).where(
-                MonitoredRepo.repo_full_name == repo_full_name
-            )
-        )
-        monitored_repos = result.scalars().all()
-
-        if not monitored_repos:
-            # No one is monitoring this repo
-            logger.info(f"Received webhook for unmonitored repo: {repo_full_name}")
-            return {"ok": True, "message": "no monitors"}
-
-        # Verify signature against any of the stored secrets
-        verified = False
-        for mr in monitored_repos:
-            if _verify_signature(payload_body, mr.webhook_secret, signature):
-                verified = True
-                break
-
-        if not verified:
-            logger.warning(f"Invalid webhook signature for {repo_full_name}")
+    # ── Signature verification ──
+    if GITHUB_APP_WEBHOOK_SECRET:
+        # GitHub App mode: single shared secret
+        if not _verify_signature(payload_body, GITHUB_APP_WEBHOOK_SECRET, signature):
+            logger.warning(f"Invalid GitHub App webhook signature for {repo_full_name}")
             raise HTTPException(status_code=401, detail="Invalid signature")
+    else:
+        # Legacy per-repo mode
+        async with AsyncSessionLocal() as _legacy_db:
+            result = await _legacy_db.execute(
+                select(MonitoredRepo).where(
+                    MonitoredRepo.repo_full_name == repo_full_name
+                )
+            )
+            monitored_repos = result.scalars().all()
+            if not monitored_repos:
+                logger.info(f"Received webhook for unmonitored repo: {repo_full_name}")
+                return {"ok": True, "message": "no monitors"}
 
+            verified = any(
+                _verify_signature(payload_body, mr.webhook_secret, signature)
+                for mr in monitored_repos
+            )
+            if not verified:
+                logger.warning(f"Invalid webhook signature for {repo_full_name}")
+                raise HTTPException(status_code=401, detail="Invalid signature")
+
+    # ── Process the event ──
+    async with AsyncSessionLocal() as db:
         # Find all repo→channel mappings for this repo (across all users)
         mappings_result = await db.execute(
             select(RepoChannelMapping).where(
