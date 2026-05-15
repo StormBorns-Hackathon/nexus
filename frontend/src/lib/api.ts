@@ -24,7 +24,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.detail || `Request failed: ${res.status}`)
+    let message = `Request failed: ${res.status}`
+    if (typeof body.detail === "string") {
+      message = body.detail
+    } else if (Array.isArray(body.detail)) {
+      message = body.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join(", ")
+    }
+    throw new Error(message)
   }
   return res.json()
 }
@@ -87,11 +93,25 @@ export function apiUrl(path: string) {
 
 // ── Slack Integration ──
 
+export interface SlackInstallation {
+  id: string
+  team_id: string
+  team_name: string
+  default_channel_id?: string | null
+  default_channel_name?: string | null
+  installed_at?: string
+}
+
 export interface SlackStatus {
   connected: boolean
+  // Legacy single-workspace fields
   team_name?: string
   team_id?: string
+  default_channel_id?: string
+  default_channel_name?: string
   installed_at?: string
+  // Multi-workspace
+  installations: SlackInstallation[]
 }
 
 export interface SlackChannel {
@@ -102,6 +122,8 @@ export interface SlackChannel {
 
 export interface RepoChannelMapping {
   id: string
+  installation_id: string | null
+  workspace_name: string
   repo_full_name: string
   channel_id: string
   channel_name: string
@@ -127,8 +149,16 @@ export async function disconnectSlack(): Promise<{ ok: boolean }> {
   return apiFetch("/slack/disconnect", { method: "DELETE" })
 }
 
+export async function disconnectSlackInstallation(installationId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/slack/disconnect/${installationId}`, { method: "DELETE" })
+}
+
 export async function getSlackChannels(): Promise<{ channels: SlackChannel[] }> {
   return apiFetch("/slack/channels")
+}
+
+export async function getSlackChannelsForInstallation(installationId: string): Promise<{ channels: SlackChannel[] }> {
+  return apiFetch(`/slack/channels/${installationId}`)
 }
 
 export async function getRepoMappings(): Promise<{ mappings: RepoChannelMapping[] }> {
@@ -136,16 +166,37 @@ export async function getRepoMappings(): Promise<{ mappings: RepoChannelMapping[
 }
 
 export async function addRepoMapping(
+  installationId: string,
   repoFullName: string,
   channelId: string,
   channelName: string,
 ): Promise<RepoChannelMapping> {
   return apiFetch("/slack/mappings", {
     method: "POST",
-    body: JSON.stringify({ repo_full_name: repoFullName, channel_id: channelId, channel_name: channelName }),
+    body: JSON.stringify({
+      installation_id: installationId,
+      repo_full_name: repoFullName,
+      channel_id: channelId,
+      channel_name: channelName,
+    }),
   })
 }
 
 export async function deleteRepoMapping(mappingId: string): Promise<{ ok: boolean }> {
   return apiFetch(`/slack/mappings/${mappingId}`, { method: "DELETE" })
+}
+
+export async function setDefaultChannel(
+  installationId: string,
+  channelId: string,
+  channelName: string,
+): Promise<{ ok: boolean }> {
+  return apiFetch("/slack/default-channel", {
+    method: "PUT",
+    body: JSON.stringify({
+      installation_id: installationId,
+      channel_id: channelId,
+      channel_name: channelName,
+    }),
+  })
 }

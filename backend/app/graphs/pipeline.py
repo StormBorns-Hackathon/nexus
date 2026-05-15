@@ -21,17 +21,33 @@ async def run_workflow(workflow_id: UUID) -> None:
         wf.status = WorkflowStatus.running
         await db.commit()
 
-        # Load the user's Slack config
+        # Load the user's Slack config — now supports multiple installations
         user_slack_config = {}
+
+        # Get all installations for this user
         result_inst = await db.execute(
-            select(SlackInstallation).where(SlackInstallation.user_id == wf.user_id)
+            select(SlackInstallation)
+            .where(SlackInstallation.user_id == wf.user_id)
+            .order_by(SlackInstallation.installed_at.desc())
         )
-        installation = result_inst.scalar_one_or_none()
+        installations = result_inst.scalars().all()
 
-        if installation:
-            user_slack_config["bot_token"] = installation.bot_token
+        if installations:
+            # Use the first (most recent) installation's bot_token as default
+            user_slack_config["bot_token"] = installations[0].bot_token
 
-            # Load repo → channel mappings for this user
+            # Set default channel as fallback (from first installation)
+            for inst in installations:
+                if inst.default_channel_id:
+                    user_slack_config["default_channel"] = {
+                        "id": inst.default_channel_id,
+                        "name": inst.default_channel_name or "default",
+                    }
+                    # Use this installation's token for the default channel
+                    user_slack_config["bot_token"] = inst.bot_token
+                    break
+
+            # Load repo → channel mappings for this user, including installation info
             repo_name = (wf.signal_payload or {}).get("repo", "")
             if repo_name:
                 result_maps = await db.execute(
@@ -41,10 +57,25 @@ async def run_workflow(workflow_id: UUID) -> None:
                     )
                 )
                 mappings = result_maps.scalars().all()
-                user_slack_config["channels"] = [
-                    {"id": m.channel_id, "name": m.channel_name}
-                    for m in mappings
-                ]
+
+                # Build channels list with per-channel bot tokens
+                installations_map = {inst.id: inst for inst in installations}
+                channels = []
+                for m in mappings:
+                    inst = installations_map.get(m.installation_id)
+                    if inst:
+                        channels.append({
+                            "id": m.channel_id,
+                            "name": m.channel_name,
+                            "bot_token": inst.bot_token,
+                        })
+                    else:
+                        channels.append({
+                            "id": m.channel_id,
+                            "name": m.channel_name,
+                        })
+
+                user_slack_config["channels"] = channels
 
         try:
             result = await run_pipeline(
