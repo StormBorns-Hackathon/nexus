@@ -1,5 +1,6 @@
 import { motion, useInView } from "framer-motion"
 import { useRef } from "react"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 
@@ -23,10 +24,12 @@ export function CTA() {
             Fire your first webhook and watch Nexus agents think, research, and deliver — in real-time.
           </p>
           <motion.div initial={{ opacity: 0, y: 15 }} animate={isInView ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.3, duration: 0.5 }} className="mt-10">
-            <Button size="lg" className="glow-primary group bg-primary px-10 text-base text-primary-foreground transition-all duration-300 hover:scale-[1.03] hover:bg-primary/90">
-              Fire a Webhook
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Button>
+            <Link to="/signup">
+              <Button size="lg" className="glow-primary group bg-primary px-10 text-base text-primary-foreground transition-all duration-300 hover:scale-[1.03] hover:bg-primary/90">
+                Get Started Free
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
       </div>
