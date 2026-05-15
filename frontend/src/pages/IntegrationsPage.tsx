@@ -10,7 +10,6 @@ import {
   XCircle,
   Loader2,
   Trash2,
-  Plus,
   Hash,
   GitBranch,
   Building2,
