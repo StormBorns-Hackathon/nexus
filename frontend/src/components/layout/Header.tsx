@@ -3,10 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  Tooltip,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Home, LogOut, PanelLeft } from "lucide-react"
+import { LogOut, PanelLeft } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -47,58 +43,26 @@ export function Header({ onToggleSidebar }: HeaderProps) {
       <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
         <div className="flex items-center gap-2">
           {/* Sidebar toggle */}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={onToggleSidebar}
-                  className="text-muted-foreground"
-                />
-              }
-            >
-              <PanelLeft className="h-4 w-4" />
-            </TooltipTrigger>
-            {/* <TooltipContent
-              side="bottom"
-              className="border-border bg-card text-card-foreground"
-            >
-              <p className="text-xs">Toggle sidebar</p>
-            </TooltipContent> */}
-          </Tooltip>
-
-          {/* Home */}
-          <Link to="/">
-            <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
-              <Home className="h-4 w-4" />
-            </Button>
-          </Link>
-          {/* <span className="text-xs text-muted-foreground">/ app</span> */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onToggleSidebar}
+            className="text-muted-foreground"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Sign out with tooltip + confirm */}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => setShowLogoutDialog(true)}
-                />
-              }
-            >
-              <LogOut className="h-4 w-4" />
-            </TooltipTrigger>
-            {/* <TooltipContent
-              side="bottom"
-              className="border-border bg-card text-card-foreground"
-            >
-              <p className="text-xs">Sign out</p>
-            </TooltipContent> */}
-          </Tooltip>
+          {/* Sign out */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setShowLogoutDialog(true)}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
 
           {/* Avatar with profile pic or initial */}
           <Link to="/profile">
