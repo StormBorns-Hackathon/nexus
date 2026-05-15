@@ -1,9 +1,10 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { Search, Filter } from "lucide-react"
+import { Search, Filter, Loader2, Radio, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WorkflowCard } from "@/components/workflow/WorkflowCard"
-import { mockWorkflows } from "@/data/mock"
+import { useWorkflows } from "@/lib/queries"
 import type { WorkflowStatus } from "@/types"
 import { cn } from "@/lib/utils"
 
@@ -17,8 +18,11 @@ const filters: { label: string; value: WorkflowStatus | "all" }[] = [
 export function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<WorkflowStatus | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const { data, isLoading } = useWorkflows()
 
-  const filtered = mockWorkflows.filter((wf) => {
+  const workflows = data?.workflows ?? []
+
+  const filtered = workflows.filter((wf) => {
     if (activeFilter !== "all" && wf.status !== activeFilter) return false
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -30,10 +34,10 @@ export function Dashboard() {
   })
 
   const counts = {
-    all: mockWorkflows.length,
-    running: mockWorkflows.filter((w) => w.status === "running").length,
-    completed: mockWorkflows.filter((w) => w.status === "completed").length,
-    failed: mockWorkflows.filter((w) => w.status === "failed").length,
+    all: workflows.length,
+    running: workflows.filter((w) => w.status === "running").length,
+    completed: workflows.filter((w) => w.status === "completed").length,
+    failed: workflows.filter((w) => w.status === "failed").length,
   }
 
   return (
@@ -69,7 +73,7 @@ export function Dashboard() {
           >
             <p className="text-xs text-muted-foreground">{stat.label}</p>
             <p className={cn("mt-1 font-heading text-2xl font-bold", stat.colorClass)}>
-              {stat.value}
+              {isLoading ? "—" : stat.value}
             </p>
           </div>
         ))}
@@ -114,10 +118,37 @@ export function Dashboard() {
 
       {/* Workflow List */}
       <div className="mt-6 space-y-3">
-        {filtered.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : filtered.length > 0 ? (
           filtered.map((wf, i) => (
             <WorkflowCard key={wf.id} workflow={wf} index={i} />
           ))
+        ) : workflows.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center py-20 text-center"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+              <Radio className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="mt-4 font-heading text-base font-semibold text-foreground">
+              No workflows yet
+            </h3>
+            <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
+              Trigger your first webhook to start an autonomous agent pipeline run.
+            </p>
+            <Link to="/trigger">
+              <Button className="mt-5 gap-2" size="sm">
+                <Send className="h-3.5 w-3.5" />
+                Create your first workflow
+              </Button>
+            </Link>
+          </motion.div>
         ) : (
           <div className="py-16 text-center">
             <p className="text-sm text-muted-foreground">No workflows match your filters.</p>

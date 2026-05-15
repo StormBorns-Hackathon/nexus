@@ -1,17 +1,24 @@
 import { useParams, Link } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowLeft, Clock, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Clock, CheckCircle2, Loader2 } from "lucide-react"
 import { WorkflowStatusBadge } from "@/components/workflow/WorkflowStatus"
 import { TraceStep } from "@/components/trace/TraceStep"
 import { LiveIndicator } from "@/components/trace/LiveIndicator"
-import { mockWorkflows, mockStepsByWorkflow } from "@/data/mock"
+import { useWorkflowDetail } from "@/lib/queries"
 
 export function WorkflowDetail() {
   const { id } = useParams<{ id: string }>()
-  const workflow = mockWorkflows.find((w) => w.id === id)
-  const steps = id ? mockStepsByWorkflow[id] ?? [] : []
+  const { data, isLoading, isError } = useWorkflowDetail(id ?? "")
 
-  if (!workflow) {
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (isError || !data) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -23,6 +30,8 @@ export function WorkflowDetail() {
       </div>
     )
   }
+
+  const { workflow, steps } = data
 
   const title =
     (workflow.signal_payload?.title as string) ??

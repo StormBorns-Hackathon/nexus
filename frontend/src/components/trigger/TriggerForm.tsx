@@ -1,110 +1,124 @@
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Radio, Send, CheckCircle, Code } from "lucide-react"
-import { triggerScenarios } from "@/data/mock"
+import { GitPullRequestArrow, Send, CheckCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useTriggerWorkflow } from "@/lib/queries"
+
+const GITHUB_URL_REGEX = /^https?:\/\/github\.com\/[^/]+\/[^/]+\/(pull|issues)\/\d+/i
 
 export function TriggerForm() {
-  const [selected, setSelected] = useState(triggerScenarios[0].id)
-  const [customPayload, setCustomPayload] = useState("")
-  const [submitted, setSubmitted] = useState(false)
-  const [showPayload, setShowPayload] = useState(false)
+  const [githubUrl, setGithubUrl] = useState("")
+  const navigate = useNavigate()
+  const triggerMutation = useTriggerWorkflow()
 
-  const activeScenario = triggerScenarios.find((s) => s.id === selected)!
+  const isValidUrl = GITHUB_URL_REGEX.test(githubUrl.trim())
+  const urlType = githubUrl.includes("/pull/") ? "Pull Request" : githubUrl.includes("/issues/") ? "Issue" : null
 
   function handleTrigger() {
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 3000)
+    if (!isValidUrl) return
+
+    triggerMutation.mutate(
+      { githubUrl: githubUrl.trim() },
+      {
+        onSuccess: (data) => {
+          setTimeout(() => {
+            navigate(`/workflow/${data.workflow_id}`)
+          }, 1200)
+        },
+      },
+    )
   }
+
+  const isSubmitted = triggerMutation.isSuccess
+  const isLoading = triggerMutation.isPending
 
   return (
     <div className="space-y-6">
-      {/* Scenario Selection */}
-      <div>
-        <h3 className="mb-3 text-sm font-medium text-foreground">Select Scenario</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {triggerScenarios.map((scenario, i) => (
-            <motion.div
-              key={scenario.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.08 }}
-            >
-              <Card
-                className={cn(
-                  "cursor-pointer border transition-all duration-200",
-                  selected === scenario.id
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border bg-card hover:border-border hover:bg-accent"
-                )}
-                onClick={() => setSelected(scenario.id)}
-              >
-                <CardContent className="flex items-start gap-3 p-4">
-                  <div
-                    className={cn(
-                      "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                      selected === scenario.id
-                        ? "border-primary bg-primary"
-                        : "border-muted-foreground/30 bg-transparent"
-                    )}
-                  >
-                    {selected === scenario.id && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">{scenario.label}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{scenario.description}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+      {/* URL Input */}
+      <Card className="border-border bg-card">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <GitPullRequestArrow className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-card-foreground">GitHub PR or Issue URL</h3>
+              <p className="text-xs text-muted-foreground">
+                Paste a public GitHub pull request or issue URL to analyze it with the agent pipeline.
+              </p>
+            </div>
+          </div>
 
-      {/* Payload Preview */}
-      <div>
-        <button
-          onClick={() => setShowPayload(!showPayload)}
-          className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <Code className="h-3.5 w-3.5" />
-          {showPayload ? "Hide" : "Preview"} Payload
-        </button>
+          <div className="relative">
+            <Input
+              type="url"
+              placeholder="https://github.com/owner/repo/pull/123 or /issues/456"
+              value={githubUrl}
+              onChange={(e) => {
+                setGithubUrl(e.target.value)
+                if (triggerMutation.isError) triggerMutation.reset()
+              }}
+              className={cn(
+                "pr-10 font-mono text-xs",
+                githubUrl && !isValidUrl && "border-destructive/50 focus:border-destructive",
+                githubUrl && isValidUrl && "border-chart-1/50 focus:border-chart-1",
+              )}
+            />
+            {githubUrl && isValidUrl && (
+              <CheckCircle className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-chart-1" />
+            )}
+          </div>
 
-        {showPayload && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            transition={{ duration: 0.2 }}
-            className="mt-3"
-          >
-            <pre className="overflow-x-auto rounded-lg border border-border bg-muted p-4 font-mono text-xs leading-relaxed text-muted-foreground">
-              {JSON.stringify(activeScenario.payload, null, 2)}
-            </pre>
-          </motion.div>
-        )}
-      </div>
+          {githubUrl && !isValidUrl && (
+            <p className="mt-2 text-xs text-destructive/80">
+              Enter a valid GitHub PR or Issue URL (e.g. https://github.com/owner/repo/pull/123)
+            </p>
+          )}
 
-      {/* Custom payload for custom scenario */}
-      {selected === "custom_webhook" && (
+          {githubUrl && isValidUrl && urlType && (
+            <p className="mt-2 text-xs text-chart-1/80">
+              Detected: <span className="font-medium">{urlType}</span>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* How it works */}
+      <Card className="border-border bg-card/50">
+        <CardContent className="p-5">
+          <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            What happens next
+          </p>
+          <div className="space-y-2.5">
+            {[
+              "Fetch PR/Issue details, description, and labels from GitHub",
+              "Planner agent analyzes the context and creates an action plan",
+              "Researcher agent gathers additional context about the topic",
+              "Action agent delivers a summary to your configured Slack channel",
+            ].map((step, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <span className="text-xs leading-relaxed text-muted-foreground">{step}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Error */}
+      {triggerMutation.isError && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
         >
-          <label className="mb-2 block text-sm font-medium text-foreground">
-            Custom Payload (JSON)
-          </label>
-          <textarea
-            value={customPayload}
-            onChange={(e) => setCustomPayload(e.target.value)}
-            placeholder='{"description": "Your custom signal..."}'
-            className="h-32 w-full rounded-lg border border-input bg-muted px-4 py-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30"
-          />
+          {triggerMutation.error.message}
         </motion.div>
       )}
 
@@ -113,45 +127,38 @@ export function TriggerForm() {
         <Button
           size="lg"
           onClick={handleTrigger}
-          disabled={submitted}
+          disabled={!isValidUrl || isLoading || isSubmitted}
           className={cn(
             "h-11 px-6 text-sm transition-all",
-            submitted
-              ? "bg-chart-1 text-chart-1"
-              : ""
+            isSubmitted ? "bg-chart-1 text-chart-1" : "",
           )}
         >
-          {submitted ? (
+          {isSubmitted ? (
             <>
               <CheckCircle className="mr-1.5 h-4 w-4" />
-              Webhook Fired!
+              Workflow Created!
+            </>
+          ) : isLoading ? (
+            <>
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              Fetching from GitHub…
             </>
           ) : (
             <>
               <Send className="mr-1.5 h-4 w-4" />
-              Fire Webhook
+              Run Pipeline
             </>
           )}
         </Button>
-        {submitted && (
+        {isSubmitted && (
           <motion.span
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             className="text-xs text-chart-1"
           >
-            Workflow created — redirecting to trace view...
+            Redirecting to trace view…
           </motion.span>
         )}
-      </div>
-
-      {/* Info note */}
-      <div className="flex items-start gap-2 rounded-lg border border-border bg-card p-3.5">
-        <Radio className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          This will simulate a webhook ingestion. In production, external services like GitHub or
-          PagerDuty would send these payloads automatically via{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-[10px]">POST /api/webhooks/ingest</code>.
-        </p>
       </div>
     </div>
   )

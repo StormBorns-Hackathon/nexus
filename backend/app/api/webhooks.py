@@ -3,7 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.database import get_db
 from app.models.workflow_models import Workflow, WorkflowStatus
+from app.models.user_models import User
 from app.models import schemas
+from app.utils.auth_utils import get_current_user
 
 router = APIRouter()
 
@@ -17,9 +19,11 @@ async def run_workflow_background(workflow_id):
 async def ingest_webhook(
     request: schemas.WebhookIngestRequest,
     background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     workflow = Workflow(
+        user_id=user.id,
         signal_type=request.source,
         signal_payload=request.payload,
         status=WorkflowStatus.pending,

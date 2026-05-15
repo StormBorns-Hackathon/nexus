@@ -1,3 +1,6 @@
+import re
+
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -5,15 +8,24 @@ from uuid import UUID
 
 from app.models.database import get_db
 from app.models.workflow_models import Workflow, WorkflowStep, WorkflowStatus
+from app.models.user_models import User
 from app.models import schemas
 from app.api.webhooks import run_workflow_background
+from app.utils.auth_utils import get_current_user
 
 router = APIRouter()
 
 
 @router.get("", response_model=schemas.WorkflowListResponse)
-async def list_workflows(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Workflow).order_by(Workflow.created_at.desc()))
+async def list_workflows(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.user_id == user.id)
+        .order_by(Workflow.created_at.desc())
+    )
     workflows = result.scalars().all()
 
     summaries = [
@@ -33,12 +45,18 @@ async def list_workflows(db: AsyncSession = Depends(get_db)):
 
 @router.get("/{workflow_id}", response_model=schemas.WorkflowDetail)
 async def get_workflow_detail(
-    workflow_id: UUID, db: AsyncSession = Depends(get_db)
+    workflow_id: UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     wf_result = await db.execute(select(Workflow).where(Workflow.id == workflow_id))
     workflow = wf_result.scalar_one_or_none()
     if workflow is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
+
+    # Ensure the workflow belongs to the current user
+    if workflow.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this workflow")
 
     steps_result = await db.execute(
         select(WorkflowStep)
@@ -73,24 +91,69 @@ async def get_workflow_detail(
     return schemas.WorkflowDetail(workflow=summary, steps=steps_serialized)
 
 
+GITHUB_URL_PATTERN = re.compile(
+    r"https?://github\.com/([^/]+)/([^/]+)/(pull|issues)/(\d+)",
+    re.IGNORECASE,
+)
+
+
 @router.post("/trigger", status_code=201)
 async def trigger_workflow(
-    body: schemas.ManualTriggerRequest,
+    body: schemas.GithubTriggerRequest,
     background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # for now, we hardcode one scenario
-    if body.scenario != "github_issue":
-        raise HTTPException(status_code=400, detail="Unknown scenario")
+    url = body.github_url.strip()
+    match = GITHUB_URL_PATTERN.match(url)
+    if not match:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid GitHub URL. Expected: https://github.com/owner/repo/pull/123 or https://github.com/owner/repo/issues/123",
+        )
 
-    payload = body.custom_payload or {
-        "title": "API error when saving user profile",
-        "url": "https://github.com/org/repo/issues/123",
-        "body": "Steps to reproduce...",
+    owner, repo, kind, number = match.groups()
+    is_pr = kind == "pull"
+
+    # Fetch details from GitHub API
+    api_path = f"https://api.github.com/repos/{owner}/{repo}/{'pulls' if is_pr else 'issues'}/{number}"
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            api_path,
+            headers={"Accept": "application/vnd.github.v3+json"},
+            timeout=10,
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not fetch from GitHub (HTTP {resp.status_code}). Make sure the repo is public and the URL is correct.",
+        )
+
+    data = resp.json()
+
+    payload = {
+        "title": data.get("title", ""),
+        "url": url,
+        "body": data.get("body", "") or "",
+        "author": data.get("user", {}).get("login", "unknown"),
+        "repo": f"{owner}/{repo}",
+        "number": int(number),
+        "state": data.get("state", ""),
+        "labels": [l["name"] for l in data.get("labels", [])],
     }
 
+    if is_pr:
+        payload["changed_files"] = data.get("changed_files", 0)
+        payload["additions"] = data.get("additions", 0)
+        payload["deletions"] = data.get("deletions", 0)
+        payload["merged"] = data.get("merged", False)
+
+    signal_type = "github_pr" if is_pr else "github_issue"
+
     workflow = Workflow(
-        signal_type="github",
+        user_id=user.id,
+        signal_type=signal_type,
         signal_payload=payload,
         status=WorkflowStatus.pending,
     )
