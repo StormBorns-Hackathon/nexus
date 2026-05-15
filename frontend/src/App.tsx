@@ -6,6 +6,7 @@ import { Home } from "@/pages/Home"
 import { SignIn } from "@/pages/SignIn"
 import { SignUp } from "@/pages/SignUp"
 import { GithubCallback } from "@/pages/GithubCallback"
+import { SlackCallback } from "@/pages/SlackCallback"
 import { Dashboard } from "@/pages/Dashboard"
 import { WorkflowDetail } from "@/pages/WorkflowDetail"
 import { TriggerPage } from "@/pages/TriggerPage"
@@ -35,6 +36,7 @@ export function App() {
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signup" element={<SignUp />} />
               <Route path="/auth/github/callback" element={<GithubCallback />} />
+              <Route path="/integrations/slack/callback" element={<SlackCallback />} />
 
             {/* App pages — protected + layout */}
             <Route element={<ProtectedRoute />}>
