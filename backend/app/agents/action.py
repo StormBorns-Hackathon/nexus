@@ -145,7 +145,11 @@ async def action_node(state: dict, ws_manager=None) -> dict:
     bot_token = user_slack.get("bot_token") or SLACK_BOT_TOKEN
     target_channels = user_slack.get("channels", [])
 
-    # If no mapped channels, fall back to .env channel
+    # Fallback 1: user's default channel from OAuth installation
+    if not target_channels and user_slack.get("default_channel"):
+        target_channels = [user_slack["default_channel"]]
+
+    # Fallback 2: .env channel for legacy/dev usage
     if not target_channels and SLACK_CHANNEL_ID:
         target_channels = [{"id": SLACK_CHANNEL_ID, "name": "default"}]
 

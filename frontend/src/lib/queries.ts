@@ -16,6 +16,7 @@ import {
   disconnectSlack,
   addRepoMapping,
   deleteRepoMapping,
+  setDefaultChannel,
   type WorkflowListResponse,
   type WorkflowDetailResponse,
   type TriggerResponse,
@@ -157,6 +158,16 @@ export function useDeleteMapping() {
     mutationFn: (mappingId) => deleteRepoMapping(mappingId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.repoMappings })
+    },
+  })
+}
+
+export function useSetDefaultChannel() {
+  const queryClient = useQueryClient()
+  return useMutation<{ ok: boolean }, Error, { channelId: string; channelName: string }>({
+    mutationFn: ({ channelId, channelName }) => setDefaultChannel(channelId, channelName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.slackStatus })
     },
   })
 }

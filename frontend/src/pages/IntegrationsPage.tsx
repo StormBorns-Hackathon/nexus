@@ -21,22 +21,23 @@ import {
   useDisconnectSlack,
   useAddMapping,
   useDeleteMapping,
+  useSetDefaultChannel,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 export function IntegrationsPage() {
   const slackStatus = useSlackStatus()
-  const channels = useSlackChannels(slackStatus.data?.connected ?? false)
+  const isConnected = slackStatus.data?.connected ?? false
+  const channels = useSlackChannels(isConnected)
   const mappings = useRepoMappings()
   const disconnectMutation = useDisconnectSlack()
   const addMappingMutation = useAddMapping()
   const deleteMappingMutation = useDeleteMapping()
+  const setDefaultMutation = useSetDefaultChannel()
 
   const [newRepo, setNewRepo] = useState("")
   const [selectedChannel, setSelectedChannel] = useState("")
-
-  const isConnected = slackStatus.data?.connected ?? false
 
   async function handleConnectSlack() {
     try {
@@ -46,6 +47,12 @@ export function IntegrationsPage() {
     } catch (e) {
       console.error("Failed to get Slack auth URL", e)
     }
+  }
+
+  function handleSetDefault(channelId: string) {
+    const channel = channels.data?.channels.find((c) => c.id === channelId)
+    if (!channel) return
+    setDefaultMutation.mutate({ channelId: channel.id, channelName: channel.name })
   }
 
   function handleAddMapping() {
@@ -135,7 +142,8 @@ export function IntegrationsPage() {
 
             <CardContent>
               {isConnected ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* Workspace info */}
                   <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
                     <div>
                       <p className="text-xs text-muted-foreground">Workspace</p>
@@ -155,6 +163,44 @@ export function IntegrationsPage() {
                       ) : null}
                       Disconnect
                     </Button>
+                  </div>
+
+                  {/* Default channel picker */}
+                  <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Default Channel</p>
+                        <p className="text-xs text-muted-foreground">
+                          Alerts go here when no repo-specific mapping exists.
+                        </p>
+                      </div>
+                      {setDefaultMutation.isPending && (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Hash className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <select
+                        value={slackStatus.data?.default_channel_id ?? ""}
+                        onChange={(e) => handleSetDefault(e.target.value)}
+                        className={cn(
+                          "h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-xs",
+                          "focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring/30",
+                        )}
+                      >
+                        <option value="">Select a default channel...</option>
+                        {channels.data?.channels.map((ch) => (
+                          <option key={ch.id} value={ch.id}>
+                            #{ch.name} {ch.is_private ? "🔒" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {slackStatus.data?.default_channel_name && (
+                      <p className="text-xs text-chart-1">
+                        Currently: <span className="font-medium">#{slackStatus.data.default_channel_name}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -180,7 +226,7 @@ export function IntegrationsPage() {
                   Repo → Channel Mappings
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Route pipeline alerts to specific Slack channels based on the repository.
+                  Override the default channel for specific repos. If no mapping exists for a repo, the default channel is used.
                 </p>
               </CardHeader>
 
@@ -280,7 +326,7 @@ export function IntegrationsPage() {
                 ) : (
                   <div className="py-6 text-center">
                     <p className="text-xs text-muted-foreground">
-                      No mappings yet. Add a repo → channel mapping above.
+                      No repo-specific mappings. All alerts will go to the default channel.
                     </p>
                   </div>
                 )}

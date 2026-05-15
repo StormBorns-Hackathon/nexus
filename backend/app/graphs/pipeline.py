@@ -31,8 +31,15 @@ async def run_workflow(workflow_id: UUID) -> None:
         if installation:
             user_slack_config["bot_token"] = installation.bot_token
 
+            # Set default channel as fallback
+            if installation.default_channel_id:
+                user_slack_config["default_channel"] = {
+                    "id": installation.default_channel_id,
+                    "name": installation.default_channel_name or "default",
+                }
+
             # Load repo → channel mappings for this user
-            repo_name = (wf.signal_payload or {}).get("repo", "")
+            repo_name = (wf.signal_payload or {}).get("repo", "" )
             if repo_name:
                 result_maps = await db.execute(
                     select(RepoChannelMapping).where(

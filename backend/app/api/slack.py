@@ -30,13 +30,18 @@ class AddMappingRequest(BaseModel):
     channel_name: str
 
 
+class SetDefaultChannelRequest(BaseModel):
+    channel_id: str
+    channel_name: str
+
+
 # ── OAuth endpoints ──
 
 @router.get("/auth-url")
 async def get_auth_url():
     if not SLACK_CLIENT_ID:
         raise HTTPException(status_code=500, detail="SLACK_CLIENT_ID not configured")
-    scopes = "chat:write,channels:read,groups:read"
+    scopes = "chat:write,channels:read,groups:read,channels:join"
     url = (
         f"https://slack.com/oauth/v2/authorize"
         f"?client_id={SLACK_CLIENT_ID}"
@@ -117,6 +122,8 @@ async def get_slack_status(
         "connected": True,
         "team_name": installation.team_name,
         "team_id": installation.team_id,
+        "default_channel_id": installation.default_channel_id,
+        "default_channel_name": installation.default_channel_name,
         "installed_at": installation.installed_at,
     }
 
@@ -135,6 +142,44 @@ async def disconnect_slack(
     )
     await db.commit()
     return {"ok": True}
+
+
+# ── Default channel ──
+
+@router.put("/default-channel")
+async def set_default_channel(
+    body: SetDefaultChannelRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(SlackInstallation).where(SlackInstallation.user_id == user.id)
+    )
+    installation = result.scalar_one_or_none()
+    if not installation:
+        raise HTTPException(status_code=400, detail="Slack not connected")
+
+    installation.default_channel_id = body.channel_id
+    installation.default_channel_name = body.channel_name
+    await db.commit()
+
+    # Auto-join the channel so the bot can post
+    await _auto_join_channel(installation.bot_token, body.channel_id)
+
+    return {"ok": True}
+
+
+async def _auto_join_channel(bot_token: str, channel_id: str) -> None:
+    """Have the bot join a public channel. Silently ignores errors (e.g. private channels)."""
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://slack.com/api/conversations.join",
+                headers={"Authorization": f"Bearer {bot_token}"},
+                json={"channel": channel_id},
+            )
+    except Exception:
+        pass  # Best-effort; private channels require manual invite
 
 
 # ── Channel listing ──
@@ -221,6 +266,14 @@ async def add_mapping(
     except Exception:
         await db.rollback()
         raise HTTPException(status_code=409, detail="This mapping already exists")
+
+    # Auto-join the channel so the bot can post
+    result_inst = await db.execute(
+        select(SlackInstallation).where(SlackInstallation.user_id == user.id)
+    )
+    inst = result_inst.scalar_one_or_none()
+    if inst:
+        await _auto_join_channel(inst.bot_token, body.channel_id)
 
     return {
         "id": mapping.id,

@@ -15,6 +15,8 @@ class SlackInstallation(Base):
     team_name = Column(String(255), nullable=False)
     bot_token = Column(String(512), nullable=False)
     bot_user_id = Column(String(50), nullable=True)
+    default_channel_id = Column(String(50), nullable=True)
+    default_channel_name = Column(String(255), nullable=True)
     installed_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
 

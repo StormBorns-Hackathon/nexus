@@ -17,9 +17,9 @@ async def send_slack_message(channel: str, text: str, bot_token: str | None = No
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             "https://slack.com/api/chat.postMessage",
-            headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
+            headers={"Authorization": f"Bearer {token}"},
             json={
-                "channel": channel or SLACK_CHANNEL_ID,
+                "channel": channel,
                 "text": text,
                 "mrkdwn": True,
                 "unfurl_links": False,

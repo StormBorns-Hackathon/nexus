@@ -91,6 +91,8 @@ export interface SlackStatus {
   connected: boolean
   team_name?: string
   team_id?: string
+  default_channel_id?: string
+  default_channel_name?: string
   installed_at?: string
 }
 
@@ -148,4 +150,11 @@ export async function addRepoMapping(
 
 export async function deleteRepoMapping(mappingId: string): Promise<{ ok: boolean }> {
   return apiFetch(`/slack/mappings/${mappingId}`, { method: "DELETE" })
+}
+
+export async function setDefaultChannel(channelId: string, channelName: string): Promise<{ ok: boolean }> {
+  return apiFetch("/slack/default-channel", {
+    method: "PUT",
+    body: JSON.stringify({ channel_id: channelId, channel_name: channelName }),
+  })
 }
