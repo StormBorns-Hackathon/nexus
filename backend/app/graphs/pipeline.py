@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from app.models.database import AsyncSessionLocal
-from app.models.workflow_models import Workflow, WorkflowStatus
+from app.models.workflow_models import Workflow, WorkflowStatus,WorkflowStep
 from app.models.slack_models import SlackInstallation, RepoChannelMapping
 from app.agents.pipeline import run_pipeline
 from app.services.ws_manager import ws_manager
