@@ -267,37 +267,32 @@ def _transform_payload(url: str, payload: dict) -> dict:
         return payload
 
     workflow = payload.get("workflow", {})
-    summary = workflow.get("result_summary", "")
     report = workflow.get("report", "")
     signal = workflow.get("signal_payload", {})
-    signal_type = workflow.get("signal_type", "")
     status = workflow.get("status", "")
     title = signal.get("title", "Nexus Pipeline Report")
-    repo = signal.get("repo", "")
     pr_url = signal.get("url", "")
     timestamp = payload.get("timestamp", "")
 
+    # The `report` field is the exact same text sent to Slack bot channels
+    # via _format_slack_report() in action.py. We use it as-is for consistency.
+    body_text = report or workflow.get("result_summary", "") or "No report generated."
+
     # ── Discord ──────────────────────────────────────────────
     if "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url:
-        color = 0x22C55E if status == "completed" else 0xEF4444  # green / red
+        color = 0x22C55E if status == "completed" else 0xEF4444
 
-        fields = []
-        if repo:
-            fields.append({"name": "Repository", "value": repo, "inline": True})
-        if signal_type:
-            fields.append({"name": "Signal", "value": signal_type, "inline": True})
-        if status:
-            fields.append({"name": "Status", "value": status.upper(), "inline": True})
-        if summary and summary != report:
-            fields.append({"name": "Summary", "value": summary[:1024], "inline": False})
+        # Discord uses **bold** same as Slack *bold*, convert
+        discord_text = body_text.replace("*", "**")
 
-        description = report[:4000] if report else summary[:4000] or "No report generated."
+        # Discord embed description limit is 4096 chars
+        if len(discord_text) > 4000:
+            discord_text = discord_text[:3997] + "..."
 
         embed = {
             "title": f"🔗 {title}",
-            "description": description,
+            "description": discord_text,
             "color": color,
-            "fields": fields,
             "footer": {"text": "Nexus Pipeline"},
             "timestamp": timestamp,
         }
@@ -308,28 +303,16 @@ def _transform_payload(url: str, payload: dict) -> dict:
 
     # ── Slack Incoming Webhook ───────────────────────────────
     if "hooks.slack.com/services" in url:
-        text = report or summary or "No report generated."
-        blocks = [
-            {
-                "type": "header",
-                "text": {"type": "plain_text", "text": f"🔗 {title}"[:150], "emoji": True},
-            },
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": text[:3000]},
-            },
-        ]
-        context_parts = []
-        if repo:
-            context_parts.append(f"*Repo:* {repo}")
-        if status:
-            context_parts.append(f"*Status:* {status}")
-        if context_parts:
-            blocks.append({
-                "type": "context",
-                "elements": [{"type": "mrkdwn", "text": " | ".join(context_parts)}],
-            })
-        return {"blocks": blocks, "text": f"Nexus: {title}"}
+        # report is already in Slack mrkdwn format, send as-is
+        return {
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": body_text[:3000]},
+                },
+            ],
+            "text": f"Nexus: {title}",
+        }
 
     # ── Generic / webhook.site / custom API ──────────────────
     return payload
