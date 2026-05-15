@@ -143,8 +143,8 @@ export function Dashboard() {
               Trigger your first webhook to start an autonomous agent pipeline run.
             </p>
             <Link to="/trigger">
-              <Button className="mt-5 gap-2" size="sm">
-                <Send className="h-3.5 w-3.5" />
+              <Button className="mt-5 gap-2" >
+                {/* <Send className="h-3.5 w-3.5" /> */}
                 Create your first workflow
               </Button>
             </Link>

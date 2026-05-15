@@ -20,11 +20,10 @@ import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
 interface HeaderProps {
-  sidebarCollapsed: boolean
   onToggleSidebar: () => void
 }
 
-export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
+export function Header({ onToggleSidebar }: HeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -62,12 +61,12 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
             >
               <PanelLeft className="h-4 w-4" />
             </TooltipTrigger>
-            <TooltipContent
+            {/* <TooltipContent
               side="bottom"
               className="border-border bg-card text-card-foreground"
             >
               <p className="text-xs">Toggle sidebar</p>
-            </TooltipContent>
+            </TooltipContent> */}
           </Tooltip>
 
           {/* Home */}
@@ -94,12 +93,12 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
             >
               <LogOut className="h-4 w-4" />
             </TooltipTrigger>
-            <TooltipContent
+            {/* <TooltipContent
               side="bottom"
               className="border-border bg-card text-card-foreground"
             >
               <p className="text-xs">Sign out</p>
-            </TooltipContent>
+            </TooltipContent> */}
           </Tooltip>
 
           {/* Avatar with profile pic or initial */}

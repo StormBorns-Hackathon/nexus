@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
 import { GitPullRequestArrow, Send, CheckCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTriggerWorkflow } from "@/lib/queries"
@@ -40,19 +40,21 @@ export function TriggerForm() {
     <div className="space-y-6">
       {/* URL Input */}
       <Card className="border-border bg-card">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <GitPullRequestArrow className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-medium text-card-foreground">GitHub PR or Issue URL</h3>
+              <CardTitle className="font-heading text-base font-semibold text-card-foreground">GitHub PR or Issue URL</CardTitle>
               <p className="text-xs text-muted-foreground">
                 Paste a public GitHub pull request or issue URL to analyze it with the agent pipeline.
               </p>
             </div>
           </div>
+        </CardHeader>
 
+        <CardContent>
           <div className="relative">
             <Input
               type="url"
@@ -84,12 +86,52 @@ export function TriggerForm() {
               Detected: <span className="font-medium">{urlType}</span>
             </p>
           )}
+
+          {/* Trigger Button */}
+          <div className="flex items-center gap-4 mt-8">
+            <Button
+              size="lg"
+              onClick={handleTrigger}
+              disabled={!isValidUrl || isLoading || isSubmitted}
+              className={cn(
+                // "h-11 px-6 text-sm transition-all",
+                isSubmitted ? "bg-chart-1 text-chart-1" : "",
+              )}
+            >
+              {isSubmitted ? (
+                <>
+                  <CheckCircle className="mr-1.5 h-4 w-4" />
+                  Workflow Created!
+                </>
+              ) : isLoading ? (
+                <>
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  Fetching from GitHub…
+                </>
+              ) : (
+                <>
+                  {/* <Send className="mr-1.5 h-4 w-4" /> */}
+                  Trigger Pipeline
+                </>
+              )}
+            </Button>
+            {isSubmitted && (
+              <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-xs text-chart-1"
+              >
+                Redirecting to trace view…
+              </motion.span>
+            )}
+          </div>
+
         </CardContent>
       </Card>
 
       {/* How it works */}
       <Card className="border-border bg-card/50">
-        <CardContent className="p-5">
+        <CardContent className="">
           <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             What happens next
           </p>
@@ -121,45 +163,6 @@ export function TriggerForm() {
           {triggerMutation.error.message}
         </motion.div>
       )}
-
-      {/* Trigger Button */}
-      <div className="flex items-center gap-4">
-        <Button
-          size="lg"
-          onClick={handleTrigger}
-          disabled={!isValidUrl || isLoading || isSubmitted}
-          className={cn(
-            "h-11 px-6 text-sm transition-all",
-            isSubmitted ? "bg-chart-1 text-chart-1" : "",
-          )}
-        >
-          {isSubmitted ? (
-            <>
-              <CheckCircle className="mr-1.5 h-4 w-4" />
-              Workflow Created!
-            </>
-          ) : isLoading ? (
-            <>
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              Fetching from GitHub…
-            </>
-          ) : (
-            <>
-              <Send className="mr-1.5 h-4 w-4" />
-              Trigger Pipeline
-            </>
-          )}
-        </Button>
-        {isSubmitted && (
-          <motion.span
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-xs text-chart-1"
-          >
-            Redirecting to trace view…
-          </motion.span>
-        )}
-      </div>
     </div>
   )
 }

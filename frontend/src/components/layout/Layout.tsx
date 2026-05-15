@@ -40,7 +40,6 @@ export function Layout() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
-          sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={() => {
             // On mobile: toggle overlay
             // On desktop: toggle collapse

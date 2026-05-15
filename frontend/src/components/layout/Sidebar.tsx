@@ -4,9 +4,6 @@ import {
   LayoutDashboard,
   Radio,
   Zap,
-  ChevronLeft,
-  ChevronRight,
-  User,
   Plug,
 } from "lucide-react"
 import { cn } from "@/lib/utils"

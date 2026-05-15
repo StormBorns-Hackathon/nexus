@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import {
-  Plug,
+  // Plug,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -89,9 +89,9 @@ export function IntegrationsPage() {
         transition={{ duration: 0.3 }}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+          {/* <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <Plug className="h-4 w-4 text-primary" />
-          </div>
+          </div> */}
           <div>
             <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
               Integrations
@@ -113,8 +113,8 @@ export function IntegrationsPage() {
           <Card className="border-border bg-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4A154B]/10">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#4A154B">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="oklch(0.473 0.137 46.201)">
                     <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.522A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.166a2.528 2.528 0 0 1-2.52 2.521h-6.313z" />
                   </svg>
                 </div>
@@ -145,35 +145,36 @@ export function IntegrationsPage() {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-3">
-              {/* Connected workspaces */}
-              {installations.map((inst: SlackInstallation) => (
-                <WorkspaceRow
-                  key={inst.id}
-                  installation={inst}
-                  onDisconnect={() => disconnectMutation.mutate(inst.id)}
-                  onSetDefault={(channelId, channelName) =>
-                    setDefaultMutation.mutate({
-                      installationId: inst.id,
-                      channelId,
-                      channelName,
-                    })
-                  }
-                  isDisconnecting={disconnectMutation.isPending}
-                  isSettingDefault={setDefaultMutation.isPending}
-                />
-              ))}
-
-              {/* Connect another workspace button */}
-              <Button
-                onClick={handleConnectSlack}
-                variant={isConnected ? "outline" : "default"}
-                className="gap-2"
-                size="sm"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {isConnected ? "Connect Another Workspace" : "Connect Slack"}
-              </Button>
+            <CardContent>
+              {isConnected ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Workspace</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {slackStatus.data?.team_name}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => disconnectMutation.mutate()}
+                      disabled={disconnectMutation.isPending}
+                    >
+                      {disconnectMutation.isPending ? (
+                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      ) : null}
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button onClick={handleConnectSlack} className="gap-2">
+                  {/* <Plug className="h-3.5 w-3.5" /> */}
+                  Connect Slack
+                </Button>
+              )}
             </CardContent>
           </Card>
         </motion.div>
