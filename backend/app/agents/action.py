@@ -186,6 +186,8 @@ async def action_node(state: dict, ws_manager=None) -> dict:
     for ch in target_channels:
         channel_id = ch["id"]
         channel_name = ch.get("name", channel_id)
+        # Use per-channel bot token if available (multi-workspace), else global
+        channel_token = ch.get("bot_token") or bot_token
 
         traces.append(
             await emit_trace(
@@ -195,7 +197,7 @@ async def action_node(state: dict, ws_manager=None) -> dict:
         )
 
         try:
-            slack_resp = await send_slack_message(channel_id, message_text, bot_token=bot_token)
+            slack_resp = await send_slack_message(channel_id, message_text, bot_token=channel_token)
             sent = slack_resp.get("ok", False)
             results.append(f"#{channel_name}: {'sent' if sent else 'failed'}")
             if not sent:

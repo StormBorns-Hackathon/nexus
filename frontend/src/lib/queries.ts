@@ -11,9 +11,11 @@ import {
   ingestWebhook,
   getSlackStatus,
   getSlackChannels,
+  getSlackChannelsForInstallation,
   getRepoMappings,
   connectSlack,
   disconnectSlack,
+  disconnectSlackInstallation,
   addRepoMapping,
   deleteRepoMapping,
   setDefaultChannel,
@@ -33,6 +35,7 @@ export const queryKeys = {
   workflowDetail: (id: string) => ["workflows", id] as const,
   slackStatus: ["slack", "status"] as const,
   slackChannels: ["slack", "channels"] as const,
+  slackChannelsForInstallation: (id: string) => ["slack", "channels", id] as const,
   repoMappings: ["slack", "mappings"] as const,
 }
 
@@ -112,6 +115,14 @@ export function useSlackChannels(enabled = true) {
   })
 }
 
+export function useSlackChannelsForInstallation(installationId: string, enabled = true) {
+  return useQuery<{ channels: SlackChannel[] }>({
+    queryKey: queryKeys.slackChannelsForInstallation(installationId),
+    queryFn: () => getSlackChannelsForInstallation(installationId),
+    enabled: enabled && !!installationId,
+  })
+}
+
 export function useRepoMappings() {
   return useQuery<{ mappings: RepoChannelMapping[] }>({
     queryKey: queryKeys.repoMappings,
@@ -142,10 +153,26 @@ export function useDisconnectSlack() {
   })
 }
 
+export function useDisconnectSlackInstallation() {
+  const queryClient = useQueryClient()
+  return useMutation<{ ok: boolean }, Error, string>({
+    mutationFn: (installationId) => disconnectSlackInstallation(installationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.slackStatus })
+      queryClient.invalidateQueries({ queryKey: queryKeys.repoMappings })
+    },
+  })
+}
+
 export function useAddMapping() {
   const queryClient = useQueryClient()
-  return useMutation<RepoChannelMapping, Error, { repoFullName: string; channelId: string; channelName: string }>({
-    mutationFn: ({ repoFullName, channelId, channelName }) => addRepoMapping(repoFullName, channelId, channelName),
+  return useMutation<
+    RepoChannelMapping,
+    Error,
+    { installationId: string; repoFullName: string; channelId: string; channelName: string }
+  >({
+    mutationFn: ({ installationId, repoFullName, channelId, channelName }) =>
+      addRepoMapping(installationId, repoFullName, channelId, channelName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.repoMappings })
     },
@@ -164,8 +191,13 @@ export function useDeleteMapping() {
 
 export function useSetDefaultChannel() {
   const queryClient = useQueryClient()
-  return useMutation<{ ok: boolean }, Error, { channelId: string; channelName: string }>({
-    mutationFn: ({ channelId, channelName }) => setDefaultChannel(channelId, channelName),
+  return useMutation<
+    { ok: boolean },
+    Error,
+    { installationId: string; channelId: string; channelName: string }
+  >({
+    mutationFn: ({ installationId, channelId, channelName }) =>
+      setDefaultChannel(installationId, channelId, channelName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.slackStatus })
     },
