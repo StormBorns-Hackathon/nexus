@@ -9,6 +9,7 @@ from app.models.slack_models import SlackInstallation, RepoChannelMapping
 from app.agents.pipeline import run_pipeline
 from app.services.ws_manager import ws_manager
 
+
 # ── Omium tracing (graceful no-op when SDK is not installed) ──
 try:
     import omium
@@ -133,12 +134,3 @@ async def run_workflow(workflow_id: UUID) -> None:
             "status": wf.status.value,
             "result_summary": wf.result_summary,
         })
-        
-        # Ensure the workflow span is flushed to Omium dashboard
-        try:
-            from omium.integrations.tracer import get_current_tracer
-            tracer = get_current_tracer()
-            if tracer:
-                tracer.flush()
-        except Exception as e:
-            pass
