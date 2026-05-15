@@ -1,3 +1,4 @@
+
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Play, Zap, Search, Send } from "lucide-react"
@@ -15,7 +16,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as const },
   },
 }
 
@@ -24,7 +25,7 @@ function FloatingDashboard() {
     <motion.div
       initial={{ opacity: 0, y: 60, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.9, delay: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.9, delay: 0.7, ease: [0.25, 0.46, 0.45, 0.94] as const }}
       className="relative mx-auto mt-16 max-w-4xl px-4 sm:mt-20 lg:mt-24"
     >
       {/* Ambient glow behind the card */}
@@ -94,22 +95,20 @@ function FloatingDashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 1.2 + i * 0.3, duration: 0.5 }}
-              className={`flex items-center gap-3 rounded-lg border p-3 ${
-                step.active
+              className={`flex items-center gap-3 rounded-lg border p-3 ${step.active
                   ? "border-primary/30 bg-primary/5"
                   : step.done
                     ? "border-border/20 bg-muted/20"
                     : "border-border/10 bg-muted/10"
-              }`}
+                }`}
             >
               <div
-                className={`flex h-7 w-7 items-center justify-center rounded-md ${
-                  step.active
+                className={`flex h-7 w-7 items-center justify-center rounded-md ${step.active
                     ? "bg-primary/15 text-primary"
                     : step.done
                       ? "bg-green-500/10 text-green-400"
                       : "bg-muted/30 text-muted-foreground"
-                }`}
+                  }`}
               >
                 <step.icon className="h-3.5 w-3.5" />
               </div>
@@ -117,13 +116,12 @@ function FloatingDashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium">{step.agent} Agent</span>
                   <span
-                    className={`text-[9px] font-medium ${
-                      step.active
+                    className={`text-[9px] font-medium ${step.active
                         ? "text-primary"
                         : step.done
                           ? "text-green-400"
                           : "text-muted-foreground"
-                    }`}
+                      }`}
                   >
                     {step.status}
                   </span>
@@ -180,7 +178,7 @@ export function Hero() {
             variants={itemVariants}
             className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
-            Fire a webhook. Watch agents plan, research, and act — autonomously. 
+            Fire a webhook. Watch agents plan, research, and act — autonomously.
             Nexus transforms signals into real-world deliverables in under 60 seconds.
           </motion.p>
 
