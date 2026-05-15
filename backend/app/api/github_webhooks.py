@@ -200,22 +200,23 @@ async def receive_github_webhook(request: Request, background_tasks: BackgroundT
         # Only create workflows for "opened" PRs — other actions just notify
         workflows = []
         if action in workflow_actions:
-            mapped_user_ids = {m.user_id for m in mappings}
+            # Create ONE workflow per event (not one per user).
+            # Multiple users may have mapped the same repo, but we only need
+            # a single pipeline run — the pipeline resolves all target channels.
+            owner_user_id = mappings[0].user_id
             workflow_payload = _build_workflow_payload(event)
-            for user_id in mapped_user_ids:
-                workflow = Workflow(
-                    user_id=user_id,
-                    signal_type="github_pr",
-                    signal_payload=workflow_payload,
-                    status=WorkflowStatus.pending,
-                )
-                db.add(workflow)
-                workflows.append(workflow)
+            workflow = Workflow(
+                user_id=owner_user_id,
+                signal_type="github_pr",
+                signal_payload=workflow_payload,
+                status=WorkflowStatus.pending,
+            )
+            db.add(workflow)
+            workflows.append(workflow)
 
             await db.commit()
-            for workflow in workflows:
-                await db.refresh(workflow)
-                background_tasks.add_task(run_workflow_background, workflow.id)
+            await db.refresh(workflow)
+            background_tasks.add_task(run_workflow_background, workflow.id)
 
         # Group mappings by installation_id to batch token lookups
         installation_ids = {m.installation_id for m in mappings if m.installation_id}
