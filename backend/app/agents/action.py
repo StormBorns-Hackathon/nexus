@@ -153,31 +153,19 @@ async def action_node(state: dict, ws_manager=None) -> dict:
     if not target_channels and SLACK_CHANNEL_ID:
         target_channels = [{"id": SLACK_CHANNEL_ID, "name": "default"}]
 
-    if not bot_token:
+    if not bot_token or not target_channels:
+        reason = "Slack not configured" if not bot_token else "No Slack channels mapped"
         traces.append(
             await emit_trace(
                 ws_manager, workflow_id, "action", "result",
-                {"action_result": "Slack not configured", "confirmed": False},
+                {"action_result": f"{reason} — delivering to other integrations", "confirmed": False},
             )
         )
         return {
             "action_type": "slack",
-            "action_result": "Slack not configured — connect Slack in Integrations",
+            "action_result": f"{reason} — connect Slack in Integrations (custom webhooks still receive this report)",
             "action_confirmed": False,
-            "trace_events": traces,
-        }
-
-    if not target_channels:
-        traces.append(
-            await emit_trace(
-                ws_manager, workflow_id, "action", "result",
-                {"action_result": "No channels mapped", "confirmed": False},
-            )
-        )
-        return {
-            "action_type": "slack",
-            "action_result": "No Slack channels mapped for this repo — add mappings in Integrations",
-            "action_confirmed": False,
+            "slack_message": message_text,
             "trace_events": traces,
         }
 

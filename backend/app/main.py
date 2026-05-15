@@ -5,7 +5,8 @@ from sqlalchemy import text
 from .models.database import Base, engine
 from .models import user_models  # noqa: F401 — ensures User table is registered with Base
 from .models import slack_models  # noqa: F401 — ensures Slack tables are registered with Base
-from app.api import webhooks, workflows, websocket, auth, slack, github_webhooks
+from .models import webhook_models  # noqa: F401 — ensures CustomWebhook table is registered
+from app.api import webhooks, workflows, websocket, auth, slack, github_webhooks, custom_webhooks
 from app.services.omium_tracing import init_omium
 
 
@@ -59,6 +60,7 @@ app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"]
 app.include_router(websocket.router, prefix="/ws", tags=["websocket"])
 app.include_router(slack.router, prefix="/api/slack", tags=["slack"])
 app.include_router(github_webhooks.router, prefix="/api/github", tags=["github-webhooks"])
+app.include_router(custom_webhooks.router, prefix="/api/custom-webhooks", tags=["custom-webhooks"])
 
 
 @app.get("/")

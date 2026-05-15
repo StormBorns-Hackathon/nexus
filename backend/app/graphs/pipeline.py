@@ -1,7 +1,10 @@
 from uuid import UUID
 from datetime import datetime, timezone
+import logging
 
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 from app.models.database import AsyncSessionLocal
 from app.models.workflow_models import Workflow, WorkflowStatus,WorkflowStep
@@ -104,6 +107,7 @@ async def run_workflow(workflow_id: UUID) -> None:
 
                 user_slack_config["channels"] = channels
 
+        result = {}
         try:
             result = await run_pipeline(
                 str(workflow_id),
@@ -134,3 +138,35 @@ async def run_workflow(workflow_id: UUID) -> None:
             "status": wf.status.value,
             "result_summary": wf.result_summary,
         })
+
+        # Deliver to custom outgoing webhooks
+        try:
+            from app.api.custom_webhooks import deliver_to_webhooks
+
+            webhook_payload = {
+                "event": "workflow_completed",
+                "source": "nexus",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "workflow": {
+                    "id": str(workflow_id),
+                    "signal_type": wf.signal_type,
+                    "signal_payload": wf.signal_payload,
+                    "status": wf.status.value,
+                    "result_summary": wf.result_summary,
+                    "report": result.get("slack_message", "") if wf.status == WorkflowStatus.completed else "",
+                },
+            }
+            logger.info(f"Delivering to custom webhooks for user {wf.user_id}")
+            delivery_results = await deliver_to_webhooks(wf.user_id, webhook_payload)
+            logger.info(f"Custom webhook delivery results: {delivery_results}")
+        except Exception as e:
+            logger.error(f"Custom webhook delivery error: {e}", exc_info=True)
+        
+        # Ensure the workflow span is flushed to Omium dashboard
+        try:
+            from omium.integrations.tracer import get_current_tracer
+            tracer = get_current_tracer()
+            if tracer:
+                tracer.flush()
+        except Exception as e:
+            pass

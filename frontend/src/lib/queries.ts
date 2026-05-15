@@ -20,6 +20,11 @@ import {
   deleteRepoMapping,
   repairRepoWebhook,
   setDefaultChannel,
+  getCustomWebhooks,
+  createCustomWebhook,
+  updateCustomWebhook,
+  deleteCustomWebhook,
+  testCustomWebhook,
   type WorkflowListResponse,
   type WorkflowDetailResponse,
   type TriggerResponse,
@@ -27,6 +32,7 @@ import {
   type SlackStatus,
   type SlackChannel,
   type RepoChannelMapping,
+  type CustomWebhook,
 } from "./api"
 
 // ──────────────── Query Keys ────────────────
@@ -38,6 +44,7 @@ export const queryKeys = {
   slackChannels: ["slack", "channels"] as const,
   slackChannelsForInstallation: (id: string) => ["slack", "channels", id] as const,
   repoMappings: ["slack", "mappings"] as const,
+  customWebhooks: ["custom-webhooks"] as const,
 }
 
 // ──────────────── Queries ────────────────
@@ -216,6 +223,63 @@ export function useRepairWebhook() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.repoMappings })
     },
+  })
+}
+
+// ──────────────── Custom Webhooks ────────────────
+
+export function useCustomWebhooks() {
+  return useQuery<CustomWebhook[]>({
+    queryKey: queryKeys.customWebhooks,
+    queryFn: getCustomWebhooks,
+  })
+}
+
+export function useCreateCustomWebhook() {
+  const queryClient = useQueryClient()
+  return useMutation<
+    CustomWebhook,
+    Error,
+    { name: string; url: string; secret?: string }
+  >({
+    mutationFn: (data) => createCustomWebhook(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customWebhooks })
+    },
+  })
+}
+
+export function useDeleteCustomWebhook() {
+  const queryClient = useQueryClient()
+  return useMutation<{ ok: boolean }, Error, string>({
+    mutationFn: (id) => deleteCustomWebhook(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customWebhooks })
+    },
+  })
+}
+
+export function useToggleCustomWebhook() {
+  const queryClient = useQueryClient()
+  return useMutation<
+    CustomWebhook,
+    Error,
+    { id: string; is_active: boolean }
+  >({
+    mutationFn: ({ id, is_active }) => updateCustomWebhook(id, { is_active }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customWebhooks })
+    },
+  })
+}
+
+export function useTestCustomWebhook() {
+  return useMutation<
+    { ok: boolean; status_code?: number; response?: string; error?: string },
+    Error,
+    string
+  >({
+    mutationFn: (id) => testCustomWebhook(id),
   })
 }
 

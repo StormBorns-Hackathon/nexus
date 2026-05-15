@@ -15,6 +15,7 @@ import {
   Building2,
   Zap,
   ChevronDown,
+  Webhook,
 } from "lucide-react"
 import {
   useSlackStatus,
@@ -24,6 +25,11 @@ import {
   useAddMapping,
   useDeleteMapping,
   useSetDefaultChannel,
+  useCustomWebhooks,
+  useCreateCustomWebhook,
+  useDeleteCustomWebhook,
+  useToggleCustomWebhook,
+  useTestCustomWebhook,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import type { SlackInstallation } from "@/lib/api"
@@ -60,6 +66,23 @@ export function IntegrationsPage() {
   const [newRepo, setNewRepo] = useState("")
   const [selectedInstallation, setSelectedInstallation] = useState("")
   const [selectedChannel, setSelectedChannel] = useState("")
+
+  // Custom webhooks
+  const customWebhooks = useCustomWebhooks()
+  const createWebhookMutation = useCreateCustomWebhook()
+  const deleteWebhookMutation = useDeleteCustomWebhook()
+  const toggleWebhookMutation = useToggleCustomWebhook()
+  const testWebhookMutation = useTestCustomWebhook()
+  const [showWebhookForm, setShowWebhookForm] = useState(false)
+  const [webhookName, setWebhookName] = useState("")
+  const [webhookUrl, setWebhookUrl] = useState("")
+  const [webhookSecret, setWebhookSecret] = useState("")
+  const [testResult, setTestResult] = useState<{
+    id: string
+    ok: boolean
+    status_code?: number
+    error?: string
+  } | null>(null)
 
   // Fetch channels for the selected installation in the mapping form
   const channelsQuery = useSlackChannelsForInstallation(
@@ -257,6 +280,207 @@ export function IntegrationsPage() {
                     Install GitHub App
                   </Button>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Custom Webhooks */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.09 }}
+        >
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(270,60%,25%)]/20">
+                  <Webhook className="h-5 w-5 text-[hsl(270,60%,70%)]" />
+                </div>
+                <div>
+                  <CardTitle className="font-heading text-base font-semibold text-card-foreground">
+                    Custom Webhooks
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Send pipeline results to any URL — Discord, Teams, PagerDuty, or your own API.
+                  </p>
+                </div>
+              </div>
+              {customWebhooks.data && customWebhooks.data.length > 0 && (
+                <span className="flex items-center gap-1.5 rounded-full bg-[hsl(270,60%,25%)]/15 px-2.5 py-1 text-xs font-medium text-[hsl(270,60%,70%)]">
+                  {customWebhooks.data.filter((w) => w.is_active).length} active
+                </span>
+              )}
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {/* Existing webhooks */}
+              {customWebhooks.data?.map((wh) => (
+                <div
+                  key={wh.id}
+                  className={cn(
+                    "flex items-center justify-between rounded-lg border p-3 transition-colors",
+                    wh.is_active
+                      ? "border-border bg-muted/20"
+                      : "border-border/50 bg-muted/5 opacity-60",
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={cn(
+                        "h-2 w-2 shrink-0 rounded-full",
+                        wh.is_active ? "bg-chart-1" : "bg-muted-foreground",
+                      )}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{wh.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[300px]">
+                        {wh.url}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-xs text-muted-foreground"
+                      disabled={testWebhookMutation.isPending}
+                      onClick={() => {
+                        testWebhookMutation.mutate(wh.id, {
+                          onSuccess: (res) => {
+                            setTestResult({ id: wh.id, ...res })
+                            setTimeout(() => setTestResult(null), 4000)
+                          },
+                        })
+                      }}
+                    >
+                      {testWebhookMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Test"
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-xs text-muted-foreground"
+                      onClick={() =>
+                        toggleWebhookMutation.mutate({
+                          id: wh.id,
+                          is_active: !wh.is_active,
+                        })
+                      }
+                    >
+                      {wh.is_active ? "Pause" : "Resume"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => deleteWebhookMutation.mutate(wh.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Test result toast */}
+              {testResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-xs",
+                    testResult.ok
+                      ? "bg-chart-1/10 text-chart-1"
+                      : "bg-destructive/10 text-destructive",
+                  )}
+                >
+                  {testResult.ok
+                    ? `✓ Test delivered (HTTP ${testResult.status_code})`
+                    : `✕ Failed: ${testResult.error || `HTTP ${testResult.status_code}`}`}
+                </motion.div>
+              )}
+
+              {/* Add new webhook form */}
+              {showWebhookForm ? (
+                <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Name</label>
+                    <Input
+                      placeholder="e.g. Discord Notifications"
+                      value={webhookName}
+                      onChange={(e) => setWebhookName(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Webhook URL</label>
+                    <Input
+                      placeholder="https://discord.com/api/webhooks/..."
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      className="text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">
+                      Signing Secret{" "}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </label>
+                    <Input
+                      placeholder="HMAC-SHA256 secret for signature verification"
+                      value={webhookSecret}
+                      onChange={(e) => setWebhookSecret(e.target.value)}
+                      className="text-xs font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      disabled={!webhookName.trim() || !webhookUrl.trim() || createWebhookMutation.isPending}
+                      onClick={() => {
+                        createWebhookMutation.mutate(
+                          {
+                            name: webhookName.trim(),
+                            url: webhookUrl.trim(),
+                            secret: webhookSecret.trim() || undefined,
+                          },
+                          {
+                            onSuccess: () => {
+                              setWebhookName("")
+                              setWebhookUrl("")
+                              setWebhookSecret("")
+                              setShowWebhookForm(false)
+                            },
+                          },
+                        )
+                      }}
+                    >
+                      {createWebhookMutation.isPending ? (
+                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      ) : null}
+                      Save Webhook
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowWebhookForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setShowWebhookForm(true)}
+                >
+                  Add Webhook
+                </Button>
               )}
             </CardContent>
           </Card>

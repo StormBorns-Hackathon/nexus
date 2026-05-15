@@ -206,3 +206,49 @@ export async function setDefaultChannel(
     }),
   })
 }
+
+// ── Custom Webhooks ──
+
+export interface CustomWebhook {
+  id: string
+  name: string
+  url: string
+  has_secret: boolean
+  is_active: boolean
+  created_at: string | null
+}
+
+export async function getCustomWebhooks(): Promise<CustomWebhook[]> {
+  return apiFetch<CustomWebhook[]>("/custom-webhooks")
+}
+
+export async function createCustomWebhook(data: {
+  name: string
+  url: string
+  secret?: string
+}): Promise<CustomWebhook> {
+  return apiFetch<CustomWebhook>("/custom-webhooks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateCustomWebhook(
+  webhookId: string,
+  data: { name?: string; url?: string; secret?: string; is_active?: boolean },
+): Promise<CustomWebhook> {
+  return apiFetch<CustomWebhook>(`/custom-webhooks/${webhookId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteCustomWebhook(webhookId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/custom-webhooks/${webhookId}`, { method: "DELETE" })
+}
+
+export async function testCustomWebhook(
+  webhookId: string,
+): Promise<{ ok: boolean; status_code?: number; response?: string; error?: string }> {
+  return apiFetch(`/custom-webhooks/${webhookId}/test`, { method: "POST" })
+}
