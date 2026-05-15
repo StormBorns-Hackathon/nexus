@@ -1,8 +1,7 @@
 import type { Workflow, WorkflowStep } from "@/types"
 
-const API_BASE = "/api"
 const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "") ?? ""
-
+const API_BASE = `${backendUrl}/api`
 export function apiUrl(path: string) {
   return `${backendUrl}${path.startsWith("/") ? path : `/${path}`}`
 }
