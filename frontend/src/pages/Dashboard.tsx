@@ -18,7 +18,7 @@ const filters: { label: string; value: WorkflowStatus | "all" }[] = [
 export function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<WorkflowStatus | "all">("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const { data, isLoading, isError } = useWorkflows()
+  const { data, isLoading } = useWorkflows()
 
   const workflows = data?.workflows ?? []
 
