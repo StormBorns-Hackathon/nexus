@@ -15,6 +15,8 @@ import {
   GitBranch,
   Building2,
   Zap,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react"
 import {
   useSlackStatus,
@@ -24,6 +26,7 @@ import {
   useAddMapping,
   useDeleteMapping,
   useSetDefaultChannel,
+  useRepairWebhook,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import type { SlackInstallation } from "@/lib/api"
@@ -38,6 +41,7 @@ export function IntegrationsPage() {
   const addMappingMutation = useAddMapping()
   const deleteMappingMutation = useDeleteMapping()
   const setDefaultMutation = useSetDefaultChannel()
+  const repairMutation = useRepairWebhook()
 
   const [newRepo, setNewRepo] = useState("")
   const [selectedInstallation, setSelectedInstallation] = useState("")
@@ -315,29 +319,69 @@ export function IntegrationsPage() {
                     {mappings.data?.mappings.map((m) => (
                       <div
                         key={m.id}
-                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5"
+                        className="rounded-lg border border-border bg-muted/30 px-4 py-2.5 space-y-1.5"
                       >
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">
-                            {m.repo_full_name}
-                          </code>
-                          <span className="text-xs text-muted-foreground">→</span>
-                          <span className="flex items-center gap-1 text-xs text-foreground">
-                            <Hash className="h-3 w-3 text-muted-foreground" />
-                            {m.channel_name}
-                          </span>
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                            {m.workspace_name}
-                          </span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">
+                              {m.repo_full_name}
+                            </code>
+                            <span className="text-xs text-muted-foreground">→</span>
+                            <span className="flex items-center gap-1 text-xs text-foreground">
+                              <Hash className="h-3 w-3 text-muted-foreground" />
+                              {m.channel_name}
+                            </span>
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                              {m.workspace_name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {!m.webhook_registered && (
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={() => repairMutation.mutate(m.id)}
+                                disabled={repairMutation.isPending}
+                                className="text-chart-3 hover:text-chart-3 gap-1 text-[11px]"
+                              >
+                                {repairMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                                Register Webhook
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => deleteMappingMutation.mutate(m.id)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => deleteMappingMutation.mutate(m.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {/* Webhook status */}
+                        <div className="flex items-center gap-1.5">
+                          {m.webhook_registered ? (
+                            <span className="flex items-center gap-1 text-[10px] text-chart-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Webhook active — PRs will auto-trigger workflows
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[10px] text-amber-500">
+                              <AlertTriangle className="h-3 w-3" />
+                              Webhook not registered — click &quot;Register Webhook&quot; to enable auto-trigger
+                            </span>
+                          )}
+                        </div>
+                        {repairMutation.isError && repairMutation.variables === m.id && (
+                          <p className="text-[10px] text-destructive">{repairMutation.error.message}</p>
+                        )}
+                        {repairMutation.isSuccess && repairMutation.variables === m.id && (
+                          <p className="text-[10px] text-chart-1">✓ Webhook registered successfully!</p>
+                        )}
                       </div>
                     ))}
                   </div>
