@@ -9,7 +9,16 @@ from app.models.slack_models import SlackInstallation, RepoChannelMapping
 from app.agents.pipeline import run_pipeline
 from app.services.ws_manager import ws_manager
 
+# ── Omium tracing (graceful no-op when SDK is not installed) ──
+try:
+    import omium
+    _omium_trace = omium.trace
+except ImportError:
+    def _omium_trace(name: str):
+        return lambda fn: fn
 
+
+@_omium_trace("run_workflow")
 async def run_workflow(workflow_id: UUID) -> None:
     """Load workflow from DB, run the agent pipeline, persist results."""
     async with AsyncSessionLocal() as db:
