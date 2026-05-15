@@ -146,7 +146,7 @@ export function TriggerForm() {
           ) : (
             <>
               <Send className="mr-1.5 h-4 w-4" />
-              Run Pipeline
+              Trigger Pipeline
             </>
           )}
         </Button>
