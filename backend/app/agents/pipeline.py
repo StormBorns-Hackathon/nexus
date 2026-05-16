@@ -3,6 +3,15 @@ from app.agents.state import AgentState
 from app.agents.planner import planner_node
 from app.agents.researcher import researcher_node
 from app.agents.action import action_node
+import omium
+
+omium.init(
+    project="my-graph",
+    auto_trace=True,
+    auto_checkpoint=True,
+    checkpoint_strategy="node",  # "node" | "task" | "agent" | "manual"
+)
+omium.instrument_langgraph()
 
 
 def build_pipeline(ws_manager=None):
@@ -31,9 +40,13 @@ def build_pipeline(ws_manager=None):
     return graph.compile()
 
 
-async def run_pipeline(workflow_id: str, signal_type: str,
-                       signal_payload: dict, ws_manager=None,
-                       user_slack_config: dict | None = None) -> dict:
+async def run_pipeline(
+    workflow_id: str,
+    signal_type: str,
+    signal_payload: dict,
+    ws_manager=None,
+    user_slack_config: dict | None = None,
+) -> dict:
     """Execute the full pipeline and return final state."""
     pipeline = build_pipeline(ws_manager)
 
