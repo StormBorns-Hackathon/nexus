@@ -3,7 +3,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   LayoutDashboard,
   Radio,
-  Zap,
   Plug,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -11,8 +10,8 @@ import { useAuth } from "@/lib/auth-context"
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Trigger", href: "/trigger", icon: Radio },
   { label: "Integrations", href: "/integrations", icon: Plug },
+  { label: "Trigger", href: "/trigger", icon: Radio },
 ]
 
 interface SidebarProps {
@@ -48,8 +47,8 @@ export function Sidebar({ collapsed, onNavClick }: SidebarProps) {
         )}
       >
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary">
-            <Zap className="h-3.5 w-3.5 text-primary-foreground" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md overflow-hidden">
+            <img src="/logo.svg" alt="Nexus" className="h-7 w-7" />
           </div>
           {!collapsed && (
             <span className="font-heading text-base font-semibold tracking-tight">

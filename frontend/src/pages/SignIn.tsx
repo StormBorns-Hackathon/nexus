@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Zap, Mail, Lock, ArrowRight } from "lucide-react"
+import { Mail, Lock, ArrowRight } from "lucide-react"
 import { useAuth, getGithubOAuthURL } from "@/lib/auth-context"
 
 export function SignIn() {
@@ -49,8 +49,8 @@ export function SignIn() {
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <Zap className="h-4 w-4 text-primary-foreground" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden">
+              <img src="/logo.svg" alt="Nexus" className="h-9 w-9" />
             </div>
             <span className="font-heading text-xl font-semibold tracking-tight text-foreground">
               Nexus

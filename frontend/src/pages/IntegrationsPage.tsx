@@ -125,7 +125,7 @@ export function IntegrationsPage() {
   }
 
   return (
-    <div className="min-h-screen px-8 py-8">
+    <div className="min-h-screen px-4 py-6 sm:px-8 sm:py-8">
       {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -149,7 +149,7 @@ export function IntegrationsPage() {
           className="md:col-span-2"
         >
           <Card className="border-border bg-card hover:shadow-md hover:shadow-primary/5 transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="oklch(0.473 0.137 46.201)">
@@ -219,14 +219,14 @@ export function IntegrationsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.06 }}
         >
-          <Card className={cn("border-border bg-card h-full hover:shadow-md hover:shadow-primary/5 transition-shadow duration-300", !hasGithub && "border-chart-3/30")}>
-            <CardHeader className="flex flex-row items-center justify-between">
+          <Card className={cn("border-border bg-card h-full hover:shadow-md hover:shadow-primary/5 transition-shadow duration-300")}>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-lg",
-                  hasGithub ? "bg-chart-1/10" : "bg-chart-3/10"
+                  hasGithub ? "bg-chart-1/10" : "bg-primary/10"
                 )}>
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill={hasGithub ? "oklch(0.879 0.169 91.605)" : "oklch(0.666 0.179 58.318)"}>
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="oklch(0.473 0.137 46.201)">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                   </svg>
                 </div>
@@ -234,7 +234,7 @@ export function IntegrationsPage() {
                   <CardTitle className="font-heading text-base font-semibold text-card-foreground">
                     GitHub Account
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">
+                  <p className="text-xs text-muted-foreground">
                     Link your GitHub to analyze private repos.
                   </p>
                 </div>
@@ -256,10 +256,10 @@ export function IntegrationsPage() {
             <CardContent>
               {hasGithub ? (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                    <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                  <div className="flex items-center gap-3 rounded-lg border border-border bg-primary/10 px-4 py-3">
+                    {/* <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                    </svg>
+                    </svg> */}
                     <div>
                       <p className="text-sm font-medium text-foreground">@{user?.github_username || user?.github_id}</p>
                       <p className="text-[10px] text-muted-foreground">GitHub account linked</p>
@@ -281,9 +281,9 @@ export function IntegrationsPage() {
                   </div>
                   <a href={getGithubLinkURL()}>
                     <Button className="gap-2" size="sm">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      {/* <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                      </svg>
+                      </svg> */}
                       Link GitHub Account
                     </Button>
                   </a>
@@ -300,7 +300,7 @@ export function IntegrationsPage() {
           transition={{ duration: 0.3, delay: 0.07 }}
         >
           <Card className="border-border bg-card h-full hover:shadow-md hover:shadow-primary/5 transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-lg",
@@ -314,7 +314,7 @@ export function IntegrationsPage() {
                   <CardTitle className="font-heading text-base font-semibold text-card-foreground">
                     GitHub App
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">
+                  <p className="text-xs text-muted-foreground">
                     Install on repos for automatic PR workflows.
                   </p>
                 </div>
@@ -347,7 +347,7 @@ export function IntegrationsPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-[8%]">
                   <p className="text-xs text-muted-foreground">
                     Installing the app grants Nexus read-only access to pull requests on selected repos. When a PR is opened, Nexus automatically runs the agent pipeline and sends alerts to your mapped Slack channels.
                   </p>
@@ -377,10 +377,10 @@ export function IntegrationsPage() {
           className="md:col-span-2"
         >
           <Card className="border-border bg-card hover:shadow-md hover:shadow-primary/5 transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(270,60%,25%)]/20">
-                  <Webhook className="h-5 w-5 text-[hsl(270,60%,70%)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Webhook className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <CardTitle className="font-heading text-base font-semibold text-card-foreground">
@@ -404,7 +404,7 @@ export function IntegrationsPage() {
                 <div
                   key={wh.id}
                   className={cn(
-                    "flex items-center justify-between rounded-lg border p-3 transition-colors",
+                    "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border p-3 transition-colors",
                     wh.is_active
                       ? "border-border bg-muted/20"
                       : "border-border/50 bg-muted/5 opacity-60",
@@ -419,12 +419,12 @@ export function IntegrationsPage() {
                     />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{wh.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[300px]">
+                      <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px] sm:max-w-[300px]">
                         {wh.url}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                  <div className="flex items-center gap-1.5 shrink-0 sm:ml-3">
                     <Button
                       variant="ghost"
                       size="xs"
@@ -559,7 +559,7 @@ export function IntegrationsPage() {
                 </div>
               ) : (
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   className="gap-2"
                   onClick={() => setShowWebhookForm(true)}
@@ -580,7 +580,7 @@ export function IntegrationsPage() {
             className="md:col-span-2"
           >
             <Card className="border-border bg-card">
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <Zap className="h-4 w-4 text-primary" />
@@ -643,7 +643,7 @@ export function IntegrationsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-end gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                     {/* Channel picker */}
                     <div className="flex-1 space-y-1.5">
                       <label className="text-xs font-medium text-foreground">Channel</label>
@@ -714,7 +714,7 @@ export function IntegrationsPage() {
                     {mappings.data?.mappings.map((m) => (
                       <div
                         key={m.id}
-                        className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5"
+                        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border bg-muted/30 px-4 py-2.5"
                       >
                         <div className="flex items-center gap-2 flex-wrap">
                           <code className="rounded bg-muted px-2 py-0.5 text-xs font-mono text-foreground">
@@ -787,7 +787,7 @@ function WorkspaceRow({
 
   return (
     <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Building2 className="h-4 w-4 text-muted-foreground" />
           <div>

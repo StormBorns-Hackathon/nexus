@@ -1,4 +1,4 @@
-import { Zap, Globe, ExternalLink } from "lucide-react"
+import { Globe, ExternalLink } from "lucide-react"
 
 const footerLinks = [
   { label: "Documentation", href: "#" },
@@ -12,8 +12,8 @@ export function Footer() {
     <footer className="border-t border-border/40 py-12">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-            <Zap className="h-3.5 w-3.5 text-primary" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden">
+            <img src="/logo.svg" alt="Nexus" className="h-7 w-7" />
           </div>
           <span className="font-heading text-sm font-semibold">Nexus</span>
         </div>
