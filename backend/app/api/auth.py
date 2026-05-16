@@ -53,6 +53,7 @@ class UserResponse(BaseModel):
     github_username: str | None = None
     organization: str | None = None
     role: str | None = None
+    github_app_installation_id: int | None = None
 
 
 # ──────────────── Helpers ────────────────
@@ -68,6 +69,7 @@ def _user_dict(user: User) -> dict:
         "github_username": user.github_username,
         "organization": user.organization,
         "role": user.role,
+        "github_app_installation_id": user.github_app_installation_id,
     }
 
 
@@ -280,6 +282,7 @@ async def get_me(user: User = Depends(get_current_user)):
         github_username=user.github_username,
         organization=user.organization,
         role=user.role,
+        github_app_installation_id=user.github_app_installation_id,
     )
 
 
@@ -317,4 +320,37 @@ async def update_me(
         github_username=current_user.github_username,
         organization=current_user.organization,
         role=current_user.role,
+        github_app_installation_id=current_user.github_app_installation_id,
     )
+
+
+# ──────────────── POST /github-app-installed ────────────────
+
+
+class GitHubAppInstalledRequest(BaseModel):
+    installation_id: int
+
+
+@router.post("/github-app-installed")
+async def save_github_app_installation(
+    body: GitHubAppInstalledRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Persist the GitHub App installation_id on the current user."""
+    current_user.github_app_installation_id = body.installation_id
+    await db.commit()
+    await db.refresh(current_user)
+    return {"ok": True, "github_app_installation_id": current_user.github_app_installation_id}
+
+
+# ──────────────── GET /github-app-status ────────────────
+
+
+@router.get("/github-app-status")
+async def get_github_app_status(current_user: User = Depends(get_current_user)):
+    """Check if the current user has installed the GitHub App."""
+    return {
+        "installed": current_user.github_app_installation_id is not None,
+        "installation_id": current_user.github_app_installation_id,
+    }

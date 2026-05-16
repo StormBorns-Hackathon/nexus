@@ -31,6 +31,8 @@ import {
   useDeleteCustomWebhook,
   useToggleCustomWebhook,
   useTestCustomWebhook,
+  useGitHubAppStatus,
+  useSaveGitHubAppInstallation,
 } from "@/lib/queries"
 import { getSlackAuthUrl } from "@/lib/api"
 import type { SlackInstallation } from "@/lib/api"
@@ -48,17 +50,19 @@ export function IntegrationsPage() {
   const deleteMappingMutation = useDeleteMapping()
   const setDefaultMutation = useSetDefaultChannel()
 
-  // GitHub App installation state
+  // GitHub App installation state — persisted via backend DB
   const [searchParams, setSearchParams] = useSearchParams()
-  const [ghAppInstalled, setGhAppInstalled] = useState(() =>
-    localStorage.getItem("nexus_github_app_installed") === "true"
-  )
+  const ghAppStatusQuery = useGitHubAppStatus()
+  const saveGhAppMutation = useSaveGitHubAppInstallation()
+  const ghAppInstalled = ghAppStatusQuery.data?.installed ?? false
 
   useEffect(() => {
     const installationId = searchParams.get("installation_id")
     if (installationId) {
-      localStorage.setItem("nexus_github_app_installed", "true")
-      setGhAppInstalled(true)
+      const numericId = parseInt(installationId, 10)
+      if (!isNaN(numericId)) {
+        saveGhAppMutation.mutate(numericId)
+      }
       // Clean up the query params from the URL
       searchParams.delete("installation_id")
       searchParams.delete("setup_action")

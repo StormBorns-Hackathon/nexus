@@ -25,6 +25,8 @@ import {
   updateCustomWebhook,
   deleteCustomWebhook,
   testCustomWebhook,
+  getGitHubAppStatus,
+  saveGitHubAppInstallation,
   type WorkflowListResponse,
   type WorkflowDetailResponse,
   type TriggerResponse,
@@ -33,6 +35,7 @@ import {
   type SlackChannel,
   type RepoChannelMapping,
   type CustomWebhook,
+  type GitHubAppStatus,
 } from "./api"
 
 // ──────────────── Query Keys ────────────────
@@ -45,6 +48,7 @@ export const queryKeys = {
   slackChannelsForInstallation: (id: string) => ["slack", "channels", id] as const,
   repoMappings: ["slack", "mappings"] as const,
   customWebhooks: ["custom-webhooks"] as const,
+  githubAppStatus: ["github-app", "status"] as const,
 }
 
 // ──────────────── Queries ────────────────
@@ -283,3 +287,25 @@ export function useTestCustomWebhook() {
   })
 }
 
+// ──────────────── GitHub App Status ────────────────
+
+export function useGitHubAppStatus() {
+  return useQuery<GitHubAppStatus>({
+    queryKey: queryKeys.githubAppStatus,
+    queryFn: getGitHubAppStatus,
+  })
+}
+
+export function useSaveGitHubAppInstallation() {
+  const queryClient = useQueryClient()
+  return useMutation<
+    { ok: boolean; github_app_installation_id: number },
+    Error,
+    number
+  >({
+    mutationFn: (installationId) => saveGitHubAppInstallation(installationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.githubAppStatus })
+    },
+  })
+}

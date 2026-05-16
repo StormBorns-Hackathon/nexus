@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, TIMESTAMP
+from sqlalchemy import Column, String, BigInteger, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -19,4 +19,5 @@ class User(Base):
     avatar_url = Column(String(512), nullable=True)
     organization = Column(String(255), nullable=True)
     role = Column(String(255), nullable=True)
+    github_app_installation_id = Column(BigInteger, nullable=True)  # GitHub App installation ID
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

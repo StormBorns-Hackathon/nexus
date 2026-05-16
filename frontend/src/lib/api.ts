@@ -309,3 +309,23 @@ export async function testCustomWebhook(
 ): Promise<{ ok: boolean; status_code?: number; response?: string; error?: string }> {
   return apiFetch(`/custom-webhooks/${webhookId}/test`, { method: "POST" })
 }
+
+// ── GitHub App Installation ──
+
+export interface GitHubAppStatus {
+  installed: boolean
+  installation_id: number | null
+}
+
+export async function getGitHubAppStatus(): Promise<GitHubAppStatus> {
+  return apiFetch<GitHubAppStatus>("/auth/github-app-status")
+}
+
+export async function saveGitHubAppInstallation(
+  installationId: number,
+): Promise<{ ok: boolean; github_app_installation_id: number }> {
+  return apiFetch("/auth/github-app-installed", {
+    method: "POST",
+    body: JSON.stringify({ installation_id: installationId }),
+  })
+}
