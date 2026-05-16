@@ -17,10 +17,14 @@ each pipeline run completes (see graphs/pipeline.py).
 
 import os
 import logging
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
 _omium_initialised = False
+_PROJECT_NAME = "nexus-1"
 
 
 def init_omium() -> bool:
@@ -33,8 +37,14 @@ def init_omium() -> bool:
     """
     global _omium_initialised
 
+    if _omium_initialised:
+        return True
+
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
     api_key = os.getenv("OMIUM_API_KEY")
     api_url = os.getenv("OMIUM_API_URL")
+    project = os.getenv("OMIUM_PROJECT", _PROJECT_NAME)
 
     if not api_key:
         logger.warning("OMIUM_API_KEY not set — Omium tracing disabled")
@@ -46,13 +56,14 @@ def init_omium() -> bool:
         omium.init(
             api_key=api_key,
             api_base_url=api_url or "https://api.omium.ai",
-            project="nexus",
+            project=project,
             auto_trace=True,
             auto_checkpoint=True,
+            checkpoint_strategy="node",
         )
 
         _omium_initialised = True
-        logger.info("Omium tracing initialised (project=nexus)")
+        logger.info("Omium tracing initialised (project=%s)", project)
         return True
 
     except Exception as exc:
