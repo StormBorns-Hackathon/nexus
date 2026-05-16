@@ -51,6 +51,7 @@ async def run_pipeline(workflow_id: str, signal_type: str,
         "trace_events": [],
         "error": None,
         "user_slack_config": user_slack_config or {},
+        "slack_message": "",
     }
 
     result = await pipeline.ainvoke(initial_state)
