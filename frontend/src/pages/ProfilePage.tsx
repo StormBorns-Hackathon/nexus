@@ -25,21 +25,28 @@ import {
   Check,
   Trash2,
   AlertTriangle,
+  GitBranch,
+  ExternalLink,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, getGithubLinkURL } from "@/lib/auth-context"
+import { updateProfile } from "@/lib/api"
 
 export function ProfilePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasGithub, refreshUser } = useAuth()
   const navigate = useNavigate()
 
   const [name, setName] = useState(user?.name ?? "")
   const [email] = useState(user?.email ?? "")
-  const [org, setOrg] = useState("Nexus Platform")
-  const [role, setRole] = useState("Engineering Lead")
+  const [org, setOrg] = useState(user?.organization ?? "")
+  const [role, setRole] = useState(user?.role ?? "")
 
   // Edit mode
   const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Stash original values for cancel
   const [origName, setOrigName] = useState(name)
@@ -67,15 +74,30 @@ export function ProfilePage() {
     }
     setEditing(!editing)
     setSaved(false)
+    setSaveError(null)
   }
 
-  function handleSave() {
-    setEditing(false)
-    setSaved(true)
-    setOrigName(name)
-    setOrigOrg(org)
-    setOrigRole(role)
-    setTimeout(() => setSaved(false), 2000)
+  async function handleSave() {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await updateProfile({
+        name: name.trim(),
+        organization: org.trim(),
+        role: role.trim(),
+      })
+      await refreshUser()
+      setEditing(false)
+      setSaved(true)
+      setOrigName(name)
+      setOrigOrg(org)
+      setOrigRole(role)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save profile")
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleLogout() {
@@ -84,7 +106,6 @@ export function ProfilePage() {
   }
 
   function handleDeleteAccount() {
-    // Frontend-only — would call API in production
     logout()
     navigate("/signin")
   }
@@ -141,8 +162,8 @@ export function ProfilePage() {
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {user?.email}
               </p>
-              {user?.github_id && (
-                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+              {user?.github_id ? (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-chart-1/10 px-2.5 py-0.5 text-[10px] font-medium text-chart-1">
                   <svg
                     className="h-3 w-3"
                     viewBox="0 0 24 24"
@@ -150,8 +171,13 @@ export function ProfilePage() {
                   >
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                   </svg>
-                  GitHub linked
+                  @{user?.github_username || "linked"}
                 </span>
+              ) : (
+                <a href={getGithubLinkURL()} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-chart-3/10 px-2.5 py-1 text-[10px] font-medium text-chart-3 hover:bg-chart-3/15 transition-colors">
+                  <AlertTriangle className="h-3 w-3" />
+                  Link GitHub
+                </a>
               )}
 
               <Separator className="my-6" />
@@ -319,17 +345,26 @@ export function ProfilePage() {
                       <Button
                         onClick={handleSave}
                         className="gap-2"
+                        disabled={saving}
                       >
-                        <Check className="h-3.5 w-3.5" />
-                        Save Changes
+                        {saving ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5" />
+                        )}
+                        {saving ? "Saving…" : "Save Changes"}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={handleEditToggle}
+                        disabled={saving}
                       >
                         Cancel
                       </Button>
                     </div>
+                    {saveError && (
+                      <p className="mt-2 text-xs text-destructive">{saveError}</p>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -349,6 +384,72 @@ export function ProfilePage() {
               </AnimatePresence>
             </CardContent>
           </Card>
+          </motion.div>
+
+          {/* GitHub Connection Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.17 }}
+          >
+            <Card className={hasGithub ? "border-border bg-card" : "border-chart-3/20 bg-card"}>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${hasGithub ? "bg-chart-1/10" : "bg-chart-3/10"}`}>
+                    <GitBranch className={`h-4 w-4 ${hasGithub ? "text-chart-1" : "text-chart-3"}`} />
+                  </div>
+                  <CardTitle className="font-heading text-base font-semibold text-card-foreground">
+                    GitHub Connection
+                  </CardTitle>
+                </div>
+                {hasGithub ? (
+                  <span className="flex items-center gap-1.5 rounded-full bg-chart-1/10 px-2.5 py-1 text-[10px] font-medium text-chart-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Connected
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 rounded-full bg-chart-3/10 px-2.5 py-1 text-[10px] font-medium text-chart-3">
+                    <AlertTriangle className="h-3 w-3" />
+                    Not linked
+                  </span>
+                )}
+              </CardHeader>
+              <CardContent>
+                {hasGithub ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
+                      <svg className="h-4 w-4 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">@{user?.github_username || user?.github_id}</p>
+                        <p className="text-[10px] text-muted-foreground">Linked GitHub account</p>
+                      </div>
+                    </div>
+                    <a href={getGithubLinkURL()}>
+                      <Button variant="outline" size="sm" className="gap-2 text-xs">
+                        <ExternalLink className="h-3 w-3" />
+                        Re-link Account
+                      </Button>
+                    </a>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Link your GitHub account to analyze private repos and enable the full PR workflow pipeline. Without it, only public repos are accessible.
+                    </p>
+                    <a href={getGithubLinkURL()}>
+                      <Button size="sm" className="gap-2">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        Link GitHub Account
+                      </Button>
+                    </a>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </motion.div>
 
           {/* Danger Zone */}

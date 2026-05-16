@@ -17,4 +17,6 @@ class User(Base):
     github_access_token = Column(String(512), nullable=True)
     github_username = Column(String(255), nullable=True, index=True)
     avatar_url = Column(String(512), nullable=True)
+    organization = Column(String(255), nullable=True)
+    role = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

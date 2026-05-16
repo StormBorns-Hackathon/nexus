@@ -16,6 +16,9 @@ interface User {
   name: string
   avatar_url: string | null
   github_id: string | null
+  github_username: string | null
+  organization: string | null
+  role: string | null
 }
 
 interface AuthContextType {
@@ -23,10 +26,15 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
+  /** True if the user has linked a GitHub account */
+  hasGithub: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
   loginWithGithubCode: (code: string) => Promise<void>
+  linkGithub: (code: string) => Promise<void>
   logout: () => void
+  /** Refresh user data from /me endpoint */
+  refreshUser: () => Promise<void>
   error: string | null
   clearError: () => void
 }
@@ -43,6 +51,13 @@ export function getGithubOAuthURL() {
   const redirectUri = `${window.location.origin}/auth/github/callback`
   const scope = encodeURIComponent("repo user:email")
   return `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`
+}
+
+/** OAuth URL specifically for linking GitHub to an existing account */
+export function getGithubLinkURL() {
+  const redirectUri = `${window.location.origin}/auth/github/callback`
+  const scope = encodeURIComponent("repo user:email")
+  return `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=link`
 }
 
 // ──────────────── Provider ────────────────
@@ -66,6 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token])
 
+  // Fetch user from /me
+  const fetchMe = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(apiUrl("/api/auth/me"), {
+        headers: { Authorization: `Bearer ${currentToken}` },
+      })
+      if (!res.ok) throw new Error("Session expired")
+      const data = await res.json()
+      setUser(data)
+    } catch {
+      setToken(null)
+      setUser(null)
+    }
+  }, [])
+
   // Fetch user on mount / token change
   useEffect(() => {
     if (!token) {
@@ -75,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
 
-    async function fetchMe() {
+    async function init() {
       try {
         const res = await fetch(apiUrl("/api/auth/me"), {
           headers: { Authorization: `Bearer ${token}` },
@@ -93,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    fetchMe()
+    init()
     return () => {
       cancelled = true
     }
@@ -152,6 +182,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
   }, [])
 
+  const linkGithub = useCallback(async (code: string) => {
+    setError(null)
+    if (!token) {
+      setError("You must be signed in to link GitHub")
+      throw new Error("Not authenticated")
+    }
+    const res = await fetch(apiUrl("/api/auth/link-github"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ code }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      const msg = data.detail || "Failed to link GitHub account"
+      setError(msg)
+      throw new Error(msg)
+    }
+    // Update user with the linked data
+    setUser(data.user)
+  }, [token])
+
+  const refreshUser = useCallback(async () => {
+    if (token) {
+      await fetchMe(token)
+    }
+  }, [token, fetchMe])
+
   const logout = useCallback(() => {
     setToken(null)
     setUser(null)
@@ -164,10 +224,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         isAuthenticated: !!user,
+        hasGithub: !!user?.github_id,
         login,
         signup,
         loginWithGithubCode,
+        linkGithub,
         logout,
+        refreshUser,
         error,
         clearError,
       }}

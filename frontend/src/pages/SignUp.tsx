@@ -39,7 +39,7 @@ export function SignUp() {
     setLoading(true)
     try {
       await signup(name, email, password)
-      navigate("/dashboard")
+      navigate("/onboarding")
     } catch {
       // error is set in context
     } finally {
