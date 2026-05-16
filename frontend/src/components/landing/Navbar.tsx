@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Zap } from "lucide-react"
+import { Menu, X } from "lucide-react"
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -37,9 +37,7 @@ export function Navbar() {
           href="#"
           className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
-          <div className="glow-primary-sm flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-            <Zap className="h-4 w-4 text-primary" />
-          </div>
+          <img src="/logo.svg" alt="Nexus" className="h-8 w-8 rounded-lg" />
           <span className="font-heading text-lg font-bold tracking-tight">
             Nexus
           </span>
