@@ -33,7 +33,7 @@ const BANNER_DISMISSED_KEY = "nexus_setup_banner_dismissed"
 // ── Setup Checklist Banner ──
 
 function SetupBanner() {
-  const { user, hasGithub } = useAuth()
+  const { hasGithub } = useAuth()
   const slackStatus = useSlackStatus()
   const mappings = useRepoMappings()
 

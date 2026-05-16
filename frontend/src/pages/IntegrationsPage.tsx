@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useSearchParams, Link } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,6 @@ import {
   ChevronDown,
   Webhook,
   AlertTriangle,
-  ExternalLink,
 } from "lucide-react"
 import {
   useSlackStatus,
