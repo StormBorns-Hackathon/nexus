@@ -1,10 +1,23 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { motion } from "framer-motion"
-import { Search, Filter, Loader2, Radio } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  Search,
+  Filter,
+  Loader2,
+  Radio,
+  CheckCircle2,
+  Circle,
+  GitBranch,
+  MessageSquare,
+  Zap,
+  X,
+  ArrowRight,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WorkflowCard } from "@/components/workflow/WorkflowCard"
-import { useWorkflows } from "@/lib/queries"
+import { useWorkflows, useSlackStatus, useRepoMappings } from "@/lib/queries"
+import { useAuth, getGithubLinkURL } from "@/lib/auth-context"
 import type { WorkflowStatus } from "@/types"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +27,154 @@ const filters: { label: string; value: WorkflowStatus | "all" }[] = [
   { label: "Completed", value: "completed" },
   { label: "Failed", value: "failed" },
 ]
+
+const BANNER_DISMISSED_KEY = "nexus_setup_banner_dismissed"
+
+// ── Setup Checklist Banner ──
+
+function SetupBanner() {
+  const { hasGithub } = useAuth()
+  const slackStatus = useSlackStatus()
+  const mappings = useRepoMappings()
+
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem(BANNER_DISMISSED_KEY) === "true",
+  )
+
+  const isSlackConnected = slackStatus.data?.connected ?? false
+  const hasMappings = (mappings.data?.mappings.length ?? 0) > 0
+
+  // Don't show if everything is set up or dismissed
+  const allDone = hasGithub && isSlackConnected && hasMappings
+  if (allDone || dismissed) return null
+
+  // Still loading
+  if (slackStatus.isLoading) return null
+
+  const completedCount = [hasGithub, isSlackConnected, hasMappings].filter(Boolean).length
+
+  const steps = [
+    {
+      done: hasGithub,
+      icon: GitBranch,
+      label: "Link GitHub Account",
+      description: "Required to analyze PRs and access private repos",
+      action: hasGithub ? null : (
+        <a href={getGithubLinkURL()}>
+          <Button size="xs" className="gap-1.5 text-[11px]">
+            Link GitHub <ArrowRight className="h-3 w-3" />
+          </Button>
+        </a>
+      ),
+    },
+    {
+      done: isSlackConnected,
+      icon: MessageSquare,
+      label: "Connect Slack",
+      description: "Receive automated PR analysis notifications",
+      action: isSlackConnected ? null : (
+        <Link to="/integrations">
+          <Button size="xs" variant="outline" className="gap-1.5 text-[11px]">
+            Connect <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      ),
+    },
+    {
+      done: hasMappings,
+      icon: Zap,
+      label: "Map a Repo to Slack",
+      description: "Route PR notifications to specific channels",
+      action: hasMappings ? null : (
+        <Link to="/integrations">
+          <Button size="xs" variant="outline" className="gap-1.5 text-[11px]">
+            Set up <ArrowRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      ),
+    },
+  ]
+
+  function handleDismiss() {
+    localStorage.setItem(BANNER_DISMISSED_KEY, "true")
+    setDismissed(true)
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.3 }}
+      className="relative rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-card p-5"
+    >
+      {/* Dismiss button */}
+      <button
+        onClick={handleDismiss}
+        className="absolute top-3 right-3 rounded-md p-1 text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="flex items-center gap-2.5 mb-4">
+        <h3 className="font-heading text-sm font-semibold text-foreground">
+          Complete Your Setup
+        </h3>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+          {completedCount}/3
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-4 h-1.5 rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className="h-full rounded-full bg-primary"
+          initial={{ width: 0 }}
+          animate={{ width: `${(completedCount / 3) * 100}%` }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        />
+      </div>
+
+      <div className="space-y-3">
+        {steps.map((step) => (
+          <div
+            key={step.label}
+            className={cn(
+              "flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors",
+              step.done
+                ? "bg-chart-1/5"
+                : "bg-muted/30 border border-border/50",
+            )}
+          >
+            <div className="flex items-center gap-3">
+              {step.done ? (
+                <CheckCircle2 className="h-4 w-4 text-chart-1 shrink-0" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+              )}
+              <div>
+                <p
+                  className={cn(
+                    "text-xs font-medium",
+                    step.done ? "text-chart-1" : "text-foreground",
+                  )}
+                >
+                  {step.label}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+            {step.action}
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
+// ── Main Dashboard ──
 
 export function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<WorkflowStatus | "all">("all")
@@ -42,11 +203,17 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen px-8 py-8">
+      {/* Setup Banner */}
+      <AnimatePresence>
+        <SetupBanner />
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        className="mt-6"
       >
         <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">Workflows</h1>
         <p className="mt-1 text-sm text-muted-foreground">

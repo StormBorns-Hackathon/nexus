@@ -18,6 +18,46 @@ function authHeaders(): HeadersInit {
   }
 }
 
+// ── Error class with actionable hints ──
+
+export class ApiError extends Error {
+  statusCode: number
+  errorCode: string | null
+  /** Suggested action the user should take, e.g. "link_github", "connect_slack" */
+  action: string | null
+
+  constructor(
+    message: string,
+    statusCode: number,
+    errorCode: string | null = null,
+    action: string | null = null,
+  ) {
+    super(message)
+    this.name = "ApiError"
+    this.statusCode = statusCode
+    this.errorCode = errorCode
+    this.action = action
+  }
+}
+
+/** Infer an actionable hint from the error response */
+function inferAction(status: number, message: string): string | null {
+  const lower = message.toLowerCase()
+  if (
+    lower.includes("github access token") ||
+    lower.includes("sign in with github") ||
+    lower.includes("link") && lower.includes("github") ||
+    (status === 401 && lower.includes("github")) ||
+    (status === 403 && lower.includes("github"))
+  ) {
+    return "link_github"
+  }
+  if (lower.includes("slack") && (lower.includes("connect") || lower.includes("not connected"))) {
+    return "connect_slack"
+  }
+  return null
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -34,9 +74,26 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     } else if (Array.isArray(body.detail)) {
       message = body.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join(", ")
     }
-    throw new Error(message)
+    const action = inferAction(res.status, message)
+    throw new ApiError(message, res.status, body.error_code ?? null, action)
   }
   return res.json()
+}
+
+// ── GitHub Account Linking ──
+
+export async function linkGithubAccount(code: string): Promise<{ ok: boolean; user: Record<string, unknown> }> {
+  return apiFetch("/auth/link-github", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  })
+}
+
+export async function updateProfile(data: { name?: string; organization?: string; role?: string }): Promise<Record<string, unknown>> {
+  return apiFetch("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
 }
 
 export interface WorkflowListResponse {

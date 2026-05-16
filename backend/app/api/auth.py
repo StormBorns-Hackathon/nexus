@@ -50,6 +50,9 @@ class UserResponse(BaseModel):
     name: str
     avatar_url: str | None
     github_id: str | None
+    github_username: str | None = None
+    organization: str | None = None
+    role: str | None = None
 
 
 # ──────────────── Helpers ────────────────
@@ -62,6 +65,9 @@ def _user_dict(user: User) -> dict:
         "name": user.name,
         "avatar_url": user.avatar_url,
         "github_id": user.github_id,
+        "github_username": user.github_username,
+        "organization": user.organization,
+        "role": user.role,
     }
 
 
@@ -197,6 +203,69 @@ async def github_auth(body: GitHubCodeRequest, db: AsyncSession = Depends(get_db
     return AuthResponse(access_token=token, user=_user_dict(user))
 
 
+# ──────────────── POST /link-github ────────────────
+
+
+@router.post("/link-github")
+async def link_github(
+    body: GitHubCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Link a GitHub account to an already-authenticated user."""
+    # 1. Exchange code for access token
+    async with httpx.AsyncClient() as client:
+        token_resp = await client.post(
+            "https://github.com/login/oauth/access_token",
+            json={
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": body.code,
+            },
+            headers={"Accept": "application/json"},
+        )
+
+    token_data = token_resp.json()
+    gh_access_token = token_data.get("access_token")
+    if not gh_access_token:
+        raise HTTPException(
+            status_code=400,
+            detail=f"GitHub OAuth failed: {token_data.get('error_description', 'unknown error')}",
+        )
+
+    # 2. Fetch GitHub user profile
+    async with httpx.AsyncClient() as client:
+        user_resp = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {gh_access_token}"},
+        )
+        gh_user = user_resp.json()
+
+    gh_id = str(gh_user["id"])
+    gh_login = gh_user.get("login", "")
+    gh_avatar = gh_user.get("avatar_url")
+
+    # 3. Check this GitHub account isn't already linked to another user
+    result = await db.execute(select(User).where(User.github_id == gh_id))
+    existing = result.scalar_one_or_none()
+    if existing and existing.id != current_user.id:
+        raise HTTPException(
+            status_code=409,
+            detail="This GitHub account is already linked to another Nexus account.",
+        )
+
+    # 4. Update current user
+    current_user.github_id = gh_id
+    current_user.github_access_token = gh_access_token
+    current_user.github_username = gh_login
+    current_user.avatar_url = current_user.avatar_url or gh_avatar
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {"ok": True, "user": _user_dict(current_user)}
+
+
 # ──────────────── GET /me ────────────────
 
 
@@ -208,4 +277,44 @@ async def get_me(user: User = Depends(get_current_user)):
         name=user.name,
         avatar_url=user.avatar_url,
         github_id=user.github_id,
+        github_username=user.github_username,
+        organization=user.organization,
+        role=user.role,
+    )
+
+
+# ──────────────── PATCH /me ────────────────
+
+
+class UpdateProfileRequest(BaseModel):
+    name: str | None = None
+    organization: str | None = None
+    role: str | None = None
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.name is not None:
+        current_user.name = body.name.strip()
+    if body.organization is not None:
+        current_user.organization = body.organization.strip() or None
+    if body.role is not None:
+        current_user.role = body.role.strip() or None
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        name=current_user.name,
+        avatar_url=current_user.avatar_url,
+        github_id=current_user.github_id,
+        github_username=current_user.github_username,
+        organization=current_user.organization,
+        role=current_user.role,
     )

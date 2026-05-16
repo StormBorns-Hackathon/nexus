@@ -23,6 +23,12 @@ async def lifespan(app: FastAPI):
         await conn.execute(
             text("ALTER TABLE users ADD COLUMN IF NOT EXISTS github_username VARCHAR(255)")
         )
+        await conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS organization VARCHAR(255)")
+        )
+        await conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(255)")
+        )
         # ── Multi-workspace migration ──
         # Drop old unique constraint on user_id (single workspace) if it exists
         await conn.execute(text("""

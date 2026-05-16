@@ -12,6 +12,7 @@ import { WorkflowDetail } from "@/pages/WorkflowDetail"
 import { TriggerPage } from "@/pages/TriggerPage"
 import { ProfilePage } from "@/pages/ProfilePage"
 import { IntegrationsPage } from "@/pages/IntegrationsPage"
+import { OnboardingPage } from "@/pages/OnboardingPage"
 import { Layout } from "@/components/layout/Layout"
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute"
 
@@ -37,6 +38,7 @@ export function App() {
               <Route path="/signup" element={<SignUp />} />
               <Route path="/auth/github/callback" element={<GithubCallback />} />
               <Route path="/integrations/slack/callback" element={<SlackCallback />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
 
             {/* App pages — protected + layout */}
             <Route element={<ProtectedRoute />}>
